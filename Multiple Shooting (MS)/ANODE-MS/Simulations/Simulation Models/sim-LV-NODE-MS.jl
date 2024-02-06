@@ -116,33 +116,4 @@ iters = 2
         optprob = Optimization.OptimizationProblem(optf, params)
         @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000; callback = callback)
 
-        losses_df = DataFrame(loss = losses)
-        #CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-NODE-MS.jl/Loss Data/Losses $i.csv", losses_df, writeheader = false)
-
-        # Evaluate Single Shooting
-        function loss_single_shooting(p)
-            pred = predict_single_shooting(p)
-            l = loss_function(Xₙ, pred)
-            return l, pred
-        end
-
-        full_traj = predict_final(res_ms.u)
-        full_traj_loss = final_loss(res_ms.u)
-        push!(fulltraj_losses, full_traj_loss)
-
-        function plot_results(real, pred)
-            plot(t, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
-            scatter!(t, real[1,:], label = "Training Data")
-            plot!(legend=:topright)
-            #savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-NODE-MS.jl/Plots/Simulation $i.png")
-        end
-
-        plot_results(Xₙ, full_traj)
-
-        if i==iters
-            println("Simulation finished")
-            break 
-        end
-
-    end
-end
+        losses_df = DataF
