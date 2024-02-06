@@ -1,3 +1,7 @@
+# NOT finished
+# Unsure how to change to be SS. sim-HL-NODE-MS.jl is adapted and works. 
+
+
 # sim-HL-NODE-SS.jl
 using DifferentialEquations
 using SciMLSensitivity
@@ -13,10 +17,9 @@ using Statistics
 using StatsBase
 
 gr()
-#plotly()
 
 # Collecting Data
-data_path = "Data/lynx_hare_data.csv"
+data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
@@ -31,6 +34,9 @@ lynx_data = data[:, 3]
 transformer = fit(ZScoreTransform, hare_data)
 X_train = Float32.(StatsBase.transform(transformer, train[:, 2]))
 X_test = Float32.(StatsBase.transform(transformer, test[:, 2]))
+X_new = reshape(X_train, 1, :)
+unknown_X = zeros(Float32, 1, 68)
+X = vcat(X_new, unknown_X)
 
 t = Float32.(collect(1:size(data, 1)))
 t_train = Float32.(collect(1:Int(round(split_ration*size(data, 1)))))
@@ -48,8 +54,6 @@ u0 = Float32[X_train[1], 0.0f0]
 
 fulltraj_losses = Float32[]
 
-X = hcat(X_train, rand(rng, Float32, length(X_train)))
-X = reshape(X, 2, :)
 
 iters = 2
 
