@@ -124,12 +124,4 @@ iters = 2
             #savefig("Simulations/Results/sim-HL-NODE-SS/Plots/Simulation $i.png")
         end
 
-        plot_results(X, full_traj)
-
-        if i==iters
-            println("Simulation finished")
-            break 
-        end
-
-    end
-end
+        plot_
