@@ -3,11 +3,11 @@ using CSV, FilePathsBase, DataFrames, Plots, Statistics
 gr()
 
 # Reading the loss data into a DataFrame
-folder_path_ANODE = "/Users/junetroan/Documents/GitHub/ImprovedMultipleShooting/Simulations/ANODE-MS/Loss Data"
+folder_path_ANODE = "Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-ANODE-MS/Loss Data"
 file_names_ANODE = readdir(folder_path_ANODE)
 df_ANODE = DataFrame()
 
-folder_path_NODE = "/Users/junetroan/Documents/GitHub/ImprovedMultipleShooting/Simulations/NODE-MS/Loss Data"
+folder_path_NODE = "Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-NODE-MS/Loss Data"
 file_names_NODE = readdir(folder_path_NODE)
 df_NODE = DataFrame()
 
@@ -79,10 +79,10 @@ function compare(df1, df2)
     
     #display(p)
     #display(p2)
-    display(p3)
+    #display(p)
     
-    #savefig(p, "Simulations/Comparison/Comparison of Loss Evolution (500).png")
-    #savefig(p3, "Simulations/Comparison/Comparison of Loss Evolution (logscale)(500).png")
+    savefig(p, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (500).png")
+    #savefig(p3, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (logscale)(500).png")
 end
 
 compare(df_ANODE, df_NODE)
