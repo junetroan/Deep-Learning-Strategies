@@ -5,6 +5,22 @@ gr()
 # Reading the loss data into a DataFrame
 folder_path_ANODE = "Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-ANODE-MS/Loss Data"
 file_names_ANODE = readdir(folder_path_ANODE)
+
+missing_files = []
+for i in 1:500
+    file_name = "Losses $i.csv"
+    if !(file_name in file_names_ANODE)
+        push!(missing_files, file_name)
+    end
+end
+
+if isempty(missing_files)
+    println("No files are missing.")
+else
+    println("The following files are missing:")
+    println(missing_files)
+end
+
 df_ANODE = DataFrame()
 
 folder_path_NODE = "Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-NODE-MS/Loss Data"
@@ -73,16 +89,16 @@ function compare(df1, df2)
         plot!(p, 1:nrow(df2), row_means_2, ribbon=row_stds_2, label="NODE-MS")
     
     #p2 = plot(1:nrow(df1), log_means_1, ribbon=log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
-    p3 = plot(1:nrow(df1), row_means_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
-        plot!(p3, 1:nrow(df2), row_means_2, label="NODE-MS")
+    p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
+        plot!(p3, 1:nrow(df2), row_means_2, ribbon = log_stds_2, label="NODE-MS")
     #plot!(p2, 1:nrow(df2), log_means_2, ribbon=log_stds_2, label="NODE-MS")
     
     #display(p)
     #display(p2)
-    #display(p)
+    display(p3)
     
-    savefig(p, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (500).png")
-    #savefig(p3, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (logscale)(500).png")
+    #savefig(p, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (500).png")
+    savefig(p3, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison of Loss Evolution (logscale)(500).png")
 end
 
 compare(df_ANODE, df_NODE)
