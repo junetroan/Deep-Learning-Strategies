@@ -60,7 +60,7 @@ function predictor!(du,u,p,t)
 end
 
 params = ComponentVector{Float32}(vector_field_model = p)
-ps = getdata(params)
+#ps = getdata(params)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
