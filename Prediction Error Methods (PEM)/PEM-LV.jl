@@ -5,8 +5,12 @@ using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 using CSV, Tables, DataFrames
 using DataInterpolations
+using OrdinaryDiffEq
 using OptimizationPolyalgorithms
+using DiffEqFlux
+using Plots
 plotly()
+
 
 # Producing data
 function lotka!(du, u, p, t)
@@ -37,33 +41,35 @@ Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 y = Xₙ[1,:]
 
 # Interpolation of given data
-y_zho = ConstantInterpolation(y, tsteps)
+y_zoh = ConstantInterpolation(y, tsteps)
 
 # Definition of neural network
 state = 2
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
-K = fill(1.0f0, 2, 82)
-K = K'
+K = Float32[0.214566, 0.928355]
+
 
 #Definition of the model 
-function predictor(du,u,p,t)
-    #K, p, st = p 
-    û = U(u, p.vector_field_model, st)[1] # Network Prediction
-    yt = y_zho
+function predictor!(du,u,p,t)
+    û = U(u, p.vector_field_model, st)[1]
+    yt = y_zoh
     e = yt .- û[1]
-    du[1] = û[1] .+ K * e
+    du[1] =  û[1] .+ K .* e
+    du[2] = û[2]
 end
 
-params = ComponentVector{Float32}(vector_field_model = p, gain)
-prob_nn = ODEProblem(predictor, u0 , tspan, params, saveat=tsteps)
+params = ComponentVector{Float32}(vector_field_model = p)
+ps = getdata(params)
+prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
 # Predict function
 function prediction(p)
-    p_full = (p..., y_zho)
-    _prob = remake(predprob, u0 = u0, p = p_full)
-    solve(_prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
+    p_full = (p..., y_zoh)
+    _prob = remake(prob_nn, u0 = u0, p = p_full)
+    sensealg = ReverseDiffAdjoint()
+    Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0, sensealg = sensealg))
 end
 
 # Loss function
@@ -73,15 +79,16 @@ function predloss(p)
     return e2
 end
 
-predloss(params)
-
+#p0 = [0.7, 1.0] 
 # Optimization to find the best hyperparameters
-adtype = Optimization.AutoForwardDiff()
+adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, p0)
-res_pred = Optimization.solve(optprob, PolyOpt(), maxiters=500)
+optprob = Optimization.OptimizationProblem(optf, params)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 500, verbose = false)
 
 # Predictions
 y_pred = prediction(res_pred.u)
+
+plot(y_pred[1,:])
 
 
