@@ -206,5 +206,3 @@ def ARNLFinancialSystemID(number):
     print("Reduced coupling matrix nonzero entries proportion: ", count_nonzero(w)/prod(w.shape))
     print("Assembling matrix nonzero entries proportion: ", count_nonzero(r)/prod(r.shape))
     print("Coupling matrix nonzero entries proportion: ", count_nonzero(wr)/prod(wr.shape))
-
-
