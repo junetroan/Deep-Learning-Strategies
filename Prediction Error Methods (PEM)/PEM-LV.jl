@@ -53,30 +53,38 @@ K = Float32[0.214566, 0.928355]
 #Definition of the model 
 function predictor!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
-    yt = y_zoh
+    yt = y_zoh(t)
     e = yt .- û[1]
-    du[1] =  û[1] .+ K .* e
-    du[2] = û[2]
+    du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
 
-params = ComponentVector{Float32}(vector_field_model = p)
+params = ComponentVector{Float32}(vector_field_model = p, K = K)
 #ps = getdata(params)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
 # Predict function
 function prediction(p)
-    p_full = (p..., y_zoh)
-    _prob = remake(prob_nn, u0 = u0, p = p_full)
-    sensealg = ReverseDiffAdjoint()
+    _prob = remake(prob_nn, u0 = u0, p = p)
+    sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
     Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0, sensealg = sensealg))
 end
 
 # Loss function
 function predloss(p)
     yh = prediction(p)
-    e2 = mean(abs2, y .- yh)
+    e2 = mean(abs2, y .- yh[1,:])
     return e2
+end
+
+losses = Float32[]
+callback = function (θ, l)
+    push!(losses, predloss(θ))
+
+    if length(losses) % 50 == 0
+        println("Current loss after $(length(losses)) iterations: $(losses[end])")
+    end
+    return false
 end
 
 #p0 = [0.7, 1.0] 
