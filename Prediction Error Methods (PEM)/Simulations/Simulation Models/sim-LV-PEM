@@ -99,7 +99,7 @@ fulltraj_losses = Float32[]
         res_ms = Optimization.solve(optprob, ADAM(1e-2), maxiters = 5000, verbose = false, callback=callback)
 
         losses_df = DataFrame(losses = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Prediction Error Methods (PEM)/Simulations/Results/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         full_traj = prediction(res_ms.u)
         full_traj_loss = predloss(res_ms.u)
@@ -109,7 +109,7 @@ fulltraj_losses = Float32[]
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised PEM Model", xlabel = "Time", ylabel = "Population")
             scatter!(t, real[1,:], label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-PEM/Plots/Simulation $i.png")
+            savefig("Prediction Error Methods (PEM)/Simulations/Results/Plots/Simulation $i.png")
         end
 
         plot_results(t, Xₙ, full_traj)

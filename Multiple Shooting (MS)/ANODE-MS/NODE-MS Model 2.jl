@@ -35,6 +35,9 @@ t = solution.t
 x̄ = mean(X, dims = 2)
 noise_magnitude = 10f-3
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
+x1 = Xₙ[1,:]
+x2 = Float32.(zeros(length(Xₙ[1,:])))
+X = [x1 x2]'
 
 # Define the Neural Network
 nn = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
@@ -53,7 +56,7 @@ function continuity_loss_function(u_end, u_0)
 end
 
 function loss_multiple_shooting(p)
-    return multiple_shoot(p, Xₙ, tsteps, prob_node, loss_function, AutoTsit5(Rosenbrock23(autodiff=false)),
+    return multiple_shoot(p, X, tsteps, prob_node, loss_function, AutoTsit5(Rosenbrock23(autodiff=false)),
                           group_size; continuity_term)
 end
 
@@ -64,7 +67,7 @@ end
 
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, Xₙ[1,:] .- X̂[1, :])
+    prediction_error = mean(abs2, X[1,:] .- X̂[1, :])
     prediction_error
 end
 
@@ -88,7 +91,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shooting(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, ComponentArray(p_init))
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=5000; callback = callback)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=1000; callback = callback)
 
 function loss_single_shooting(p)
     pred = predict_single_shooting(p)
@@ -99,4 +102,4 @@ end
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 plot(full_traj[1, :])
-scatter!(Xₙ[1, :])
+scatter!(X[1, :])
