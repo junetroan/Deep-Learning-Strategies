@@ -76,7 +76,7 @@ p, st = Lux.setup(rng, U)
 params = ComponentVector{Float32}(vector_field_model = p)
 u0 = 5.0f0 * rand(rng, Float32)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> U(u,p,st)[1], u0, tspan, ComponentArray(p))
+prob_node = ODEProblem((u,p,t) -> U(u)[1], u0, tspan, ComponentArray(p))
 
 
 
@@ -91,8 +91,6 @@ function group_ranges(datasize::Integer, groupsize::Integer)
     return [i:min(datasize, i + groupsize - 1) for i in 1:(groupsize - 1):(datasize - 1)]
 end
 
-
-
 if group_size < 2 || group_size > datasize
     throw(DomainError(group_size, "group_size can't be < 2 or > number of data points"))
 end
@@ -100,21 +98,8 @@ end
 ranges = group_ranges(datasize, group_size)
 u0 = Float32(x[first(1:5)])
 
-function multiple_shoots()
-    ranges = group_ranges(datasize, group_size)
-
-    group_predictions = []
-
-    for (i,rg) in enumerate(ranges)
-        u0 = Float32(x[first(rg)])
-        prob_node = ODEProblem((u,p,t) -> U(u,p,st)[1], u0, tspan, ComponentArray(p))
-        sol = solve(prob_node, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps[rg], abstol = 1f-6, reltol = 1f-6)
-        push!(group_predictions, Array(sol))
-    end
-end
-
-
-sols = [solve(remake(prob_node; tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]), AutoTsit5(Rosenbrock23(autodiff=false)); saveat = tsteps) for rg in ranges]
+#sols = [solve(remake(prob_node; tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]), AutoTsit5(Rosenbrock23(autodiff=false)); saveat = tsteps) for rg in ranges]
+sols = [solve(remake(prob_node; p, tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]), AutoTsit5(Rosenbrock23(autodiff=false)); saveat = tsteps[rg]) for rg in ranges]
 
 group_predictions = Array.(sols)
 
