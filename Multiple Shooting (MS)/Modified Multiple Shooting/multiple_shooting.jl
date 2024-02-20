@@ -57,7 +57,7 @@ u0 = 5.0f0 * rand(rng, Float32, 2)
 p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob = ODEProblem(lotka!, u0, tspan, p_)
 println("solving ODE")
-@time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
+@time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat =1)
 X = Array(solution)
 x = X[1,:]
 #x2 = zeros(length(x))
@@ -67,17 +67,20 @@ group_size = 5
 state = 1
 groupsize = 5
 predsize = 5
-tsteps = 0.25f0
+tsteps = 1
 
 # NEURAL NETWORK
 U = Lux.Chain(Lux.Dense(state, 30, tanh),
               Lux.Dense(30, state))
 p, st = Lux.setup(rng, U)
-
-U0 = 5.0f0 * rand(rng, Float32)
+params = ComponentVector{Float32}(vector_field_model = p)
+u0 = 5.0f0 * rand(rng, Float32)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> U([u],p,st), [U0], tspan, ComponentArray(p))
+prob_node = ODEProblem((u,p,t) -> U(u,p,st)[1], u0, tspan, ComponentArray(p))
 
+
+
+datasize = size(x,1)
 tspan = (0.0f0, 10.0f0) # Original (0.0f0, 10.0f0
 tsteps = range(tspan[1], tspan[2]; length = datasize)
 
@@ -88,36 +91,37 @@ function group_ranges(datasize::Integer, groupsize::Integer)
     return [i:min(datasize, i + groupsize - 1) for i in 1:(groupsize - 1):(datasize - 1)]
 end
 
-datasize = size(x,1)
+
 
 if group_size < 2 || group_size > datasize
     throw(DomainError(group_size, "group_size can't be < 2 or > number of data points"))
 end
 
 ranges = group_ranges(datasize, group_size)
+u0 = Float32(x[first(1:5)])
 
-function find_solutions()
-    sols = []
-    for rg in ranges
-        prob_new = remake(prob_node; tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)])
-        sol = solve(prob_new, AutoTsit5(Rosenbrock23(autodiff=false)); saveat = 0.25f0)
-        push!(sols, sol)
+function multiple_shoots()
+    ranges = group_ranges(datasize, group_size)
+
+    group_predictions = []
+
+    for (i,rg) in enumerate(ranges)
+        u0 = Float32(x[first(rg)])
+        prob_node = ODEProblem((u,p,t) -> U(u,p,st)[1], u0, tspan, ComponentArray(p))
+        sol = solve(prob_node, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps[rg], abstol = 1f-6, reltol = 1f-6)
+        push!(group_predictions, Array(sol))
     end
-
-    return sols
 end
 
-solutions = find_solutions()
 
-
-
-sols = [solve(
-                remake(prob_node; tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]), AutoTsit5(Rosenbrock23(autodiff=false)); saveat = 0.25f0)
-            for rg in ranges]
-
+sols = [solve(remake(prob_node; tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]), AutoTsit5(Rosenbrock23(autodiff=false)); saveat = tsteps) for rg in ranges]
 
 group_predictions = Array.(sols)
 
+test_in = [1.0f0]
+test_out = U(test_in, p, st)[1]
+println("Test input: ", test_in)
+println("Test output: ", test_out)
 
 #=
 n_new = [remake(prob_node; p, tspan = (tsteps[first(rg)], tsteps[last(rg)]), u0 = x[first(rg)]) for rg in ranges]
@@ -129,7 +133,7 @@ p=θ, trajectories = length(u0_vec), sensealg = sensealg))
 
 
 group_predictions = Array.(solutions)
-=#
+
 
 function multiple_shoot(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
         continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
@@ -182,3 +186,4 @@ function multiple_shoot(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
         _default_continuity_loss, solver, group_size; kwargs...)
 end
 
+=#

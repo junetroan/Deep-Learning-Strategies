@@ -62,7 +62,7 @@ nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t, p_)
 
 # Construct ODE Problem
 augmented_u0 = vcat(u0[1], randn(rng, Float32, 1))
-params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = 0.25f0)
 
 # Splits the full trajectory into 1) shooting segments (targets)

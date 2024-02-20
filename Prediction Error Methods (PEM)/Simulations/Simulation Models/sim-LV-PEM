@@ -42,7 +42,7 @@ y = Xₙ[1,:]
 # Interpolation of given data
 y_zoh = ConstantInterpolation(y, tsteps)
 
-iters = 2
+iters = 10
 state = 2
 
 fulltraj_losses = Float32[]
