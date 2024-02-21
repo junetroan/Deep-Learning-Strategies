@@ -40,8 +40,6 @@ noise_magnitude2 = 62.3f-2
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 y = Xₙ[1,:]
 
-# Interpolation of given data
-y_zoh = ConstantInterpolation(y, tsteps)
 
 # Definition of neural network
 state = 2

@@ -1,4 +1,5 @@
-# sim-HL-ANODE-MS
+# ANODE-MS Financial System
+# Last ran on 21-02-2024 11:30
 
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
@@ -10,34 +11,36 @@ gr()
 #plotly()
 
 # Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/competition_model_data.csv"
-data = CSV.read(data_path, DataFrame, header = false)
+data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/financial_time_series.csv"
+data = CSV.read(data_path, DataFrame, header = true)
+
+data_update = data[2:end, :] # Remove the first row of the data because of t1 = 0 (if errors appear)
 
 #Train/test Splits
 split_ration = 0.75
-train = data[1:Int(round(split_ration*size(data, 1))), :]
-test = data[Int(round(split_ration*size(data, 1))):end, :]
+train = data[1:Int(round(split_ration*size(data, 1))), 2]
+test = data[Int(round(split_ration*size(data, 1))):end, 2]
 
 # Data Cleaning and Normalization
-bank1 = data[:,1]
-bank2 = data[:,2]
-bank3 = data[:,3]
-bank4 = data[:,4]
-bank5 = data[:,5]
+t = data[:,1]
+ir = data[:,2]
 
-transformer = fit(ZScoreTransform, bank1)
-X_train = StatsBase.transform(transformer, train[:, 1])
+transformer = fit(ZScoreTransform, ir)
+X_train_ref = StatsBase.transform(transformer, train[:, 1])
+X_train = X_train_ref[1:1500]
+t_train = data[1:1500, 1]
+#t_train = collect(1:Int(round(split_ration*size(data, 1))))
+
 X_test = StatsBase.transform(transformer, test[:, 1])
-
-t = collect(1:size(data, 1))
-t_train = collect(1:Int(round(split_ration*size(data, 1))))
 t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
+
+plot(X_train, label = "Training Data", title = "Financial Time Series", xlabel = "Time", ylabel = "Population")
 
 # Define the experimental parameter
 rng = StableRNG(1111)
 groupsize = 5
 predsize = 5
-state = 4
+state = 2
 tspan = (minimum(t_train), maximum(t_train))
 
 fulltraj_losses = Float32[]
@@ -64,7 +67,6 @@ p0, st0 = Lux.setup(rng2, U0_nn)
 function ude_dynamics!(du, u, p, t)
     û = U(u, p.vector_field_model, st)[1] # Network prediction
     du[1:end] = û[1:end]
-    #du[2] = û[2]
 end
 
 # Closure with the known parameter
@@ -138,20 +140,18 @@ optprob = Optimization.OptimizationProblem(optf, params)
 res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 losses_df = DataFrame(loss = losses)
-CSV.write("Multiple Shooting (MS)/ANODE-MS/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Case Studies/Losses ANODE-MS Financial System.csv", losses_df, writeheader = false)
 
 full_traj = predict_final(res_ms.u)
-full_traj_loss = final_loss(res_ms.u)
-push!(fulltraj_losses, full_traj_loss)
 
-function plot_results(tp,tr, real, pred)
+function plot_results(tp,real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting FinCompSys", xlabel = "Time", ylabel = "Population")
-    scatter!(tp, real, label = "Training Data")
+    plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("Multiple Shooting (MS)/ANODE-MS//Simulation $i.png")
+    savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/Plot ANODE-MS Financial System.png")
 end
 
-plot_results(t_train, t, X_train, full_traj)
+plot_results(t_train, X_train, full_traj)
 
 # MAKE TEST PART OF MODEL
 X_test = X_test
