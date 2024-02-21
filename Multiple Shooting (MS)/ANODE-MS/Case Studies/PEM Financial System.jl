@@ -6,6 +6,7 @@ using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
+using StatsBase
 using CSV, Tables, DataFrames
 using DataInterpolations
 using OrdinaryDiffEq
@@ -25,7 +26,7 @@ split_ration = 0.75
 train = data[1:Int(round(split_ration*size(data, 1))), 2]
 test = data[Int(round(split_ration*size(data, 1))):end, 2]
 
-# Data Cleaning and Normalization
+# Data Cleaning and Normalization 
 t = data[:,1]
 ir = data[:,2]
 
@@ -64,14 +65,16 @@ end
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 #ps = getdata(params)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
-soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
+soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8))
 
 # Predict function
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
     sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
-    Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0, sensealg = sensealg))
+    Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, sensealg = sensealg))
 end
+
+prediction(params)
 
 # Loss function
 function predloss(p)
@@ -79,6 +82,8 @@ function predloss(p)
     e2 = mean(abs2, X_train .- yh[1,:])
     return e2
 end
+
+predloss(params)
 
 losses = Float32[]
 callback = function (θ, l)
@@ -95,12 +100,22 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, callback = callback)
 
 # Predictions
-y_pred = prediction(res_pred.u)
+y_pred = prediction(res_ms.u)
 
 plot(y_pred[1,:])
 scatter!(X_train)
 
+losses_df = DataFrame(loss = losses)
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Case Studies/Losses PEM Financial System.csv", losses_df, writeheader = false)
 
+function plot_results(tp,real, pred)
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained PEM Model predicting FinCompSys", xlabel = "Time", ylabel = "Population")
+    plot!(tp, real, label = "Training Data")
+    plot!(legend=:topright)
+    savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/Plot PEM Financial System.png")
+end
+
+plot_results(t_train, X_train, y_pred)

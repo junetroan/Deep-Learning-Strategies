@@ -3,7 +3,7 @@ using CSV, FilePathsBase, DataFrames, Plots, Statistics
 gr()
 
 # Reading the loss data into a DataFrame
-folder_path_ANODE = "Multiple Shooting (MS)/ANODE-MS/Simulations/Results/Loss Data"
+folder_path_ANODE = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Loss Data/ANODE-MS"
 file_names_ANODE = readdir(folder_path_ANODE)
 
 missing_files = []
@@ -23,7 +23,7 @@ end
 
 df_ANODE = DataFrame()
 
-folder_path_NODE = "Prediction Error Methods (PEM)/Simulations/Results/Loss Data"
+folder_path_NODE = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Loss Data/PEM"
 file_names_NODE = readdir(folder_path_NODE)
 df_NODE = DataFrame()
 
@@ -71,17 +71,6 @@ end
 averager(df_ANODE)
 averager(df_NODE)
 
-df1 = df_ANODE
-df2 = df_NODE
-row_means_1 = mean.(eachrow(df1))
-row_means_2 = mean.(eachrow(df2))
-
-row_stds_1 = std.(eachrow(df1))    
-row_stds_2 = std.(eachrow(df2))
-log_stds_1 = abs2.(log.(row_stds_1))
-log_stds_2 = abs2.(log.(row_stds_2))
-
-
 function compare(df1, df2)
 
     row_means_1 = mean.(eachrow(df1))
@@ -96,8 +85,8 @@ function compare(df1, df2)
     log_stds_1 = log.(row_stds_1)
     log_stds_2 = log.(row_stds_2)
 
-    #p = plot(1:nrow(df1), row_means_1, ribbon=row_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
-    #    plot!(p, 1:nrow(df2), row_means_2, ribbon=row_stds_2, label="NODE-MS")
+    p = plot(1:nrow(df1), row_means_1, ribbon=row_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
+        plot!(p, 1:nrow(df2), row_means_2, ribbon=row_stds_2, label="NODE-MS")
     
     #p2 = plot(1:nrow(df1), log_means_1, ribbon=log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
     p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
@@ -112,7 +101,7 @@ function compare(df1, df2)
     #p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10, size=(800,600))
     #plot!(p3, 1:nrow(df2), row_means_2, ribbon = log_stds_2, label="PEM")
     
-    savefig(p3, "Multiple Shooting (MS)/ANODE-MS/Simulations/Comparisons/LV-MS/Comparison ANODE-MS vs. PEM (logscale).png")
+    savefig(p, "Multiple Shooting (MS)/ANODE-MS/Case Studies/Comparison ANODE-MS vs. PEM (FinCompSys).png")
 end
 
 compare(df_ANODE, df_NODE)

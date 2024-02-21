@@ -5,10 +5,15 @@ using DifferentialEquations
 using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using Distributions
+using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 using ComponentArrays, Lux, DiffEqFlux, Optimization, OptimizationPolyalgorithms, DifferentialEquations, Plots
 using DiffEqFlux: group_ranges
+using Statistics
+using StatsBase
+using CSV, Tables, DataFrames
 using OptimizationOptimisers
 using StableRNGs
+using LinearAlgebra
 gr()
 
 # Collecting data
@@ -38,6 +43,7 @@ group_size = 5
 state = 2
 continuity_term = 10.0f0
 tspan = (minimum(t_train), maximum(t_train))
+tsteps = range(tspan[1], tspan[2], length = length(X_train)) 
 
 # Define the Neural Network
 nn = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
@@ -57,7 +63,7 @@ function continuity_loss_function(u_end, u_0)
 end
 
 function loss_multiple_shooting(p)
-    return multiple_shoot(p, X, tsteps, prob_node, loss_function, AutoTsit5(Rosenbrock23(autodiff=false)),
+    return multiple_shoot(p, X_train, tsteps, prob_node, loss_function, AutoTsit5(Rosenbrock23(autodiff=false)),
                           group_size; continuity_term)
 end
 
