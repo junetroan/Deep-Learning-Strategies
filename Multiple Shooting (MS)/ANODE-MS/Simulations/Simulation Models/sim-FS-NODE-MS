@@ -26,13 +26,11 @@ ir = data[:,2]
 
 transformer = fit(ZScoreTransform, ir)
 X_train = StatsBase.transform(transformer, train[:, 2])
-X_train = X_train[1:100]
 X_train = [X_train zeros(length(X_train))]'
 
 X_test = StatsBase.transform(transformer, test[:, 2])
 t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
-#t_train = collect(1:Int(round(split_ration*size(data, 1))))
-t_train = data[1:100, 1]
+t_train = collect(1:Int(round(split_ration*size(data, 1))))
 
 rng = StableRNG(1111)
 group_size = 5
@@ -130,14 +128,14 @@ iters = 2
         full_traj_loss = final_loss(res_ms.u)
         push!(fulltraj_losses, full_traj_loss)
 
-        function plot_results(real, pred)
-            plot(t, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
-            scatter!(t, real[1,:], label = "Training Data")
+        function plot_results(tp, real, pred)
+            plot(tp, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
+            scatter!(tp, real[1,:], label = "Training Data")
             plot!(legend=:topright)
             savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-NODE-MS/Plots/Simulation $i.png")
         end
 
-        plot_results(X_train, full_traj)
+        plot_results(t_train, X_train, full_traj)
 
         if i==iters
             println("Simulation finished")
@@ -147,4 +145,4 @@ iters = 2
     end
 end
 
-# only prints loss = 0.2041528
+

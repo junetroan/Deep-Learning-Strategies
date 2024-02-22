@@ -129,8 +129,8 @@ end
 full_traj = predict_final(res_ms.u)
 
 function plot_results(tp,real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting FinCompSys", xlabel = "Time", ylabel = "Population")
-    plot!(tp, real, label = "Training Data")
+    plot(tp, pred, label = "Training Prediction", title="Trained NODE-MS Model predicting FinCompSys", xlabel = "Time", ylabel = "Population")
+    plot!(tp, real[1,:], label = "Training Data")
     plot!(legend=:topright)
     savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/Plots/Plot NODE-MS Financial System.png")
 end
