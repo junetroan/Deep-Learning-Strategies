@@ -55,7 +55,6 @@ rng3 = StableRNG(i+3)
 
 U = Lux.Chain(Lux.Dense(state, 30, tanh),
 Lux.Dense(30, state))
-
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 

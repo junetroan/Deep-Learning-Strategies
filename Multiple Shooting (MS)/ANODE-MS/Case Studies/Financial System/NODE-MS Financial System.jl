@@ -17,11 +17,10 @@ using LinearAlgebra
 gr()
 
 # Collecting data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/financial_time_series.csv"
+data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/financial_time_series.csv"
 data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
-
 split_ration = 0.75
 train = data[1:Int(round(split_ration*size(data, 1))), 2]
 test = data[Int(round(split_ration*size(data, 1))):end, 2]
@@ -33,7 +32,8 @@ ir = data[:,2]
 transformer = fit(ZScoreTransform, ir)
 X_train_ref = StatsBase.transform(transformer, train)#[:, 1])
 X_train = X_train_ref[1:1500]
-X_train = [X_train, zeros(length(X_train))]
+#X_train = [X_train X_train]'
+X_train = [X_train zeros(length(X_train))]'
 t_train = data[1:1500, 1]
 
 X_test = StatsBase.transform(transformer, test[:, 1])
@@ -44,14 +44,14 @@ group_size = 5
 state = 2
 continuity_term = 10.0f0
 tspan = (minimum(t_train), maximum(t_train))
-tsteps = range(tspan[1], tspan[2], length = length(X_train)) 
+tsteps = range(tspan[1], tspan[2], length = length(X_train[1,:])) 
 
 # Define the Neural Network
 nn = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
 p_init, st = Lux.setup(rng, nn)
-u0 = X_train[1]
+u0 = [X_train[1],0]
 
-neuralode = NeuralODE(nn, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
+neuralode = NeuralODE(nn, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> nn(u,p,st)[1], [[u0[1];zeros(state-1)]], tspan, ComponentArray(p_init))
 
 # Define parameters for Multiple Shooting
@@ -68,22 +68,22 @@ function loss_multiple_shooting(p)
                           group_size; continuity_term)
 end
 
-
 function predict_final(θ)
     return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
 end
 
+x = predict_final(ComponentArray(p_init))
+x[1,:]
+
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, X_train .- X̂[1, :])
+    prediction_error = mean(abs2, X_train[1,:] .- X̂[1, :])
     prediction_error
 end
-
 
 function predict_single_shooting(p)
     return Array(neuralode([[u0[1];zeros(state-1)]], p, st)[1])
 end
-
 
 losses = Float32[]
 
@@ -104,4 +104,8 @@ optprob = Optimization.OptimizationProblem(optf, ComponentArray(p_init))
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 plot(full_traj[1, :])
-scatter!(X[1, :])
+scatter!(X_train[1, :])
+
+
+
+
