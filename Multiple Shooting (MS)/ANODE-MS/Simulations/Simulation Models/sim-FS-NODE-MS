@@ -38,6 +38,7 @@ rng = StableRNG(1111)
 group_size = 5
 state = 2
 continuity_term = 100.0f0
+u0 = [X_train[1], 0.0f0]
 tspan = (minimum(t_train), maximum(t_train))
 tsteps = range(tspan[1], tspan[2], length = length(X_train[1,:])) 
 
@@ -57,17 +58,16 @@ iters = 2
         # Define the Neural Network
         nn = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
         p_init, st = Lux.setup(rng_1, nn)
-        u0 = [X_train[1],0]
 
-        params = ComponentVector{Float32}(ANN = p_init, u0_states = 0.5*randn(rng_2, Float32, state - 1))
+        params = ComponentVector(ANN = p_init, u0_states = 0.5*randn(rng_2, Float32, state - 1))
 
         neuralode = NeuralODE(nn, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps,
-         abstol = 1f-6, reltol = 1f-6, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-        
+        abstol = 1f-6, reltol = 1f-6, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
+
         function rhs(du, u, p, t)
             du[1:end] = nn(u, p.ANN, st)[1]
         end
-        
+
         prob_node = ODEProblem(rhs, [u0[1]; params.u0_states], tspan, params, saveat = tsteps)
 
         function loss_function(data, pred)
@@ -83,7 +83,7 @@ iters = 2
             return multiple_shoot(p, X_train, tsteps, new_prob, loss_function, continuity_loss_function, AutoTsit5(Rosenbrock23(autodiff = false)),
                                 group_size; continuity_term, abstol = 1f-6, reltol = 1f-6, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
         end
-        
+
         function predict_final(p)
             prob_new = remake(prob_node, u0 = [u0[1]; p.u0_states], p = p)
             return Array(solve(prob_new, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, abstol = 1f-6, reltol = 1f-6))[1, :]
@@ -91,7 +91,7 @@ iters = 2
 
         function final_loss(θ)
             X̂ = predict_final(θ)
-            prediction_error = mean(abs2, X_train[1, :] .- X̂[1,:])
+            prediction_error = mean(abs2, X_train[1, :] .- X̂)
             prediction_error
         end
 
@@ -107,7 +107,6 @@ iters = 2
             push!(losses, final_loss(p))
             if length(losses) % 50 == 0
                 println("Current loss after $(length(losses)) iterations: $(losses[end])")
-        
             end
             return false
         end
@@ -132,7 +131,7 @@ iters = 2
         push!(fulltraj_losses, full_traj_loss)
 
         function plot_results(real, pred)
-            plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
+            plot(t, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
             scatter!(t, real[1,:], label = "Training Data")
             plot!(legend=:topright)
             savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-NODE-MS/Plots/Simulation $i.png")

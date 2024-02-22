@@ -40,23 +40,37 @@ X_test = StatsBase.transform(transformer, test[:, 1])
 t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
 
 rng = StableRNG(1111)
-group_size = 5
+
+group_size = 2
 state = 2
-continuity_term = 10.0f0
-tspan = (minimum(t_train), maximum(t_train))
-tsteps = range(tspan[1], tspan[2], length = length(X_train[1,:])) 
+iters = 2
+tspan = (Float32(minimum(t_train)), Float32(maximum(t_train)))
+datasize = length(X_train[1,:])
+tsteps = range(tspan[1], tspan[2], length = datasize)
+continuity_term = 10
+u0 = [X_train[1], 0.0f0]
+
+i = 1
+rng_1 = StableRNG(i)
+rng_2 = StableRNG(i + 1)
 
 # Define the Neural Network
 nn = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
-p_init, st = Lux.setup(rng, nn)
-u0 = [X_train[1],0]
+p_init, st = Lux.setup(rng_1, nn)
 
-neuralode = NeuralODE(nn, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> nn(u,p,st)[1], [[u0[1];zeros(state-1)]], tspan, ComponentArray(p_init))
+params = ComponentVector(ANN = p_init, u0_states = 0.5*randn(rng_2, Float32, state - 1))
 
-# Define parameters for Multiple Shooting
+neuralode = NeuralODE(nn, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps,
+ abstol = 1f-6, reltol = 1f-6, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
+
+function rhs(du, u, p, t)
+    du[1:end] = nn(u, p.ANN, st)[1]
+end
+
+prob_node = ODEProblem(rhs, [u0[1]; params.u0_states], tspan, params, saveat = tsteps)
+
 function loss_function(data, pred)
-	return sum(abs2, data - pred)
+    return mean(abs2, data[1, :] - pred[1, :])
 end
 
 function continuity_loss_function(u_end, u_0)
@@ -64,25 +78,26 @@ function continuity_loss_function(u_end, u_0)
 end
 
 function loss_multiple_shooting(p)
-    return multiple_shoot(p, X_train, tsteps, prob_node, loss_function, AutoTsit5(Rosenbrock23(autodiff=false)),
-                          group_size; continuity_term)
+    new_prob = remake(prob_node, u0 = [u0[1]; p.u0_states], p = p)
+    return multiple_shoot(p, X_train, tsteps, new_prob, loss_function, continuity_loss_function, AutoTsit5(Rosenbrock23(autodiff = false)),
+                        group_size; continuity_term, abstol = 1f-6, reltol = 1f-6, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 end
 
-function predict_final(θ)
-    return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
+function predict_final(p)
+    prob_new = remake(prob_node, u0 = [u0[1]; p.u0_states], p = p)
+    return Array(solve(prob_new, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, abstol = 1f-6, reltol = 1f-6))[1, :]
 end
-
-x = predict_final(ComponentArray(p_init))
-x[1,:]
 
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, X_train[1,:] .- X̂[1, :])
+    prediction_error = mean(abs2, X_train[1, :] .- X̂)
     prediction_error
 end
 
+
 function predict_single_shooting(p)
-    return Array(neuralode([[u0[1];zeros(state-1)]], p, st)[1])
+    prob_new = remake(prob_node, u0 = [u0[1]; p.u0_states], p = p)
+    return Array(solve(prob_new, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, abstol = 1f-6, reltol = 1f-6))[1, :]
 end
 
 losses = Float32[]
@@ -98,14 +113,27 @@ end
 
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shooting(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, ComponentArray(p_init))
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=1000; callback = callback)
+optprob = Optimization.OptimizationProblem(optf, params)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000; callback = callback)
+
+losses_df = DataFrame(loss = losses)
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/Loss Data/NODE-MS/Losses NODE-MS Financial System.csv", losses_df, writeheader = false)
+
+# Evaluate Single Shooting
+function loss_single_shooting(p)
+    pred = predict_single_shooting(p)
+    l = loss_function(Xₙ, pred)
+    return l, pred
+end
 
 full_traj = predict_final(res_ms.u)
-full_traj_loss = final_loss(res_ms.u)
-plot(full_traj[1, :])
-scatter!(X_train[1, :])
 
+function plot_results(tp,real, pred)
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting FinCompSys", xlabel = "Time", ylabel = "Population")
+    plot!(tp, real, label = "Training Data")
+    plot!(legend=:topright)
+    savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/Plots/Plot NODE-MS Financial System.png")
+end
 
-
+plot_results(t_train, X_train, full_traj)
 

@@ -151,10 +151,3 @@ function plot_results(tp,real, pred)
 end
 
 plot_results(t_train, X_train, full_traj)
-
-# MAKE TEST PART OF MODEL
-X_test = X_test
-t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
-
-pas_test, targets_test, nn_predictors_test, u0_vec_test = group_x(X_test, groupsize, predsize)
-

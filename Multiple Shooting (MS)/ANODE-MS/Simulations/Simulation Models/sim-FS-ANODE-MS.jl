@@ -35,6 +35,7 @@ groupsize = 5
 predsize = 5
 state = 2
 tspan = (minimum(t_train), maximum(t_train))
+u0 = [X_train[1], 0.0f0]
 
 fulltraj_losses = Float32[]
 
