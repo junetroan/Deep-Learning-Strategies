@@ -10,7 +10,7 @@ gr()
 #plotly()
 
 # Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/financial_time_series.csv"
+data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/financial_time_series.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
