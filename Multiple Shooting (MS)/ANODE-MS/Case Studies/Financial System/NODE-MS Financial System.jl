@@ -33,6 +33,7 @@ ir = data[:,2]
 transformer = fit(ZScoreTransform, ir)
 X_train_ref = StatsBase.transform(transformer, train)#[:, 1])
 X_train = X_train_ref[1:1500]
+X_train = [X_train, zeros(length(X_train))]
 t_train = data[1:1500, 1]
 
 X_test = StatsBase.transform(transformer, test[:, 1])
@@ -98,7 +99,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shooting(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, ComponentArray(p_init))
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=5000; callback = callback)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=1000; callback = callback)
 
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
