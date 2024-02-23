@@ -41,7 +41,7 @@ y_zoh = ConstantInterpolation(X_train, tsteps)
 # Definition of neural network
 iters = 2
 state = 2
-u0 = [X_train[1],0]
+u0 = [X_train[1], 0]
 
 @time begin
     for i in 1:iters

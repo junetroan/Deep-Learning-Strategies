@@ -12,15 +12,9 @@ using CSV, Tables, DataFrames
 using StatsBase
 gr()
 
-function trueODEfunc(du, u, p, t)
-    α, β, γ, δ = p
-    du[1] = α * u[1] - β * u[2] * u[1]
-    du[2] = γ * u[1] * u[2] - δ * u[2]
-end
-
 data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
-rng = StableRNG(1111)
+datasize = length(X_train)
 
 #Train/test Splits
 split_ration = 0.75
@@ -41,15 +35,15 @@ X = vcat(X_new, unknown_X)
 t = Float32.(collect(1:size(data, 1)))
 t_train = Float32.(collect(1:Int(round(split_ration*size(data, 1)))))
 t_test = Float32.(collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
+tspan = (Float32(minimum(t_train)), Float32(maximum(t_train)))
+tsteps = range(tspan[1], tspan[2], length = datasize)
 
 # Define the experimental parameter
 group_size = 2
 state = 2
 iters = 2
-tspan = (Float32(minimum(t_train)), Float32(maximum(t_train)))
-datasize = length(X_train)
-tsteps = range(tspan[1], tspan[2], length = datasize)
 continuity_term = 10.0f0
+
 u0 = Float32[X_train[1], 0.0f0]
 
 fulltraj_losses = Float32[]

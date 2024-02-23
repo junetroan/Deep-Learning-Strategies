@@ -31,18 +31,19 @@ X_train = [X_train zeros(length(X_train))]'
 X_test = StatsBase.transform(transformer, test[:, 2])
 t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
 t_train = collect(1:Int(round(split_ration*size(data, 1))))
-
-rng = StableRNG(1111)
-group_size = 5
-state = 2
-continuity_term = 100.0f0
-u0 = [X_train[1], 0.0f0]
 tspan = (minimum(t_train), maximum(t_train))
 tsteps = range(tspan[1], tspan[2], length = length(X_train[1,:])) 
 
+iters = 2
+group_size = 5
+state = 2
+continuity_term = 100.0f0
+
+u0 = [X_train[1], 0]
+
 fulltraj_losses = Float32[]
 
-iters = 2
+
 
 @time begin
     for i in 1:iters
