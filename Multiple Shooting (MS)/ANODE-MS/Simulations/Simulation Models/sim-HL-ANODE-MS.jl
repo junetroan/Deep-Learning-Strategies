@@ -29,13 +29,13 @@ X_test = StatsBase.transform(transformer, test[:, 2])
 t = collect(1:size(data, 1))
 t_train = collect(1:Int(round(split_ration*size(data, 1))))
 t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
+tspan = (minimum(t_train), maximum(t_train))
 
 # Define the experimental parameter
-rng = StableRNG(1111)
 groupsize = 5
 predsize = 5
 state = 2
-tspan = (minimum(t_train), maximum(t_train))
+
 
 fulltraj_losses = Float32[]
 
