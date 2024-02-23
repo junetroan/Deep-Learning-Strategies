@@ -137,7 +137,7 @@ iters = 2
         adtype = Optimization.AutoZygote()  
         optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
         optprob = Optimization.OptimizationProblem(optf, params)
-        res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+        res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 250)
 
         losses_df = DataFrame(loss = losses)
         CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
