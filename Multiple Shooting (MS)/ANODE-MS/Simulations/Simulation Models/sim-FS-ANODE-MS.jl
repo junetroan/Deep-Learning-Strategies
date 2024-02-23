@@ -35,7 +35,6 @@ groupsize = 5
 predsize = 5
 state = 2
 tspan = (minimum(t_train), maximum(t_train))
-u0 = [X_train[1], 0.0f0]
 
 fulltraj_losses = Float32[]
 
@@ -148,7 +147,7 @@ iters = 2
         push!(fulltraj_losses, full_traj_loss)
 
         function plot_results(tp,tr, real, pred)
-            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
+            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Interest Rate", xlabel = "Time", ylabel = "Interest Rate")
             scatter!(tp, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-ANODE-MS/Plots/Simulation $i.png")

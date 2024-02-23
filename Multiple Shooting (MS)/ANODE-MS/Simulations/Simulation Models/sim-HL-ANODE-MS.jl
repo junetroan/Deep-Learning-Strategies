@@ -10,7 +10,7 @@ gr()
 #plotly()
 
 # Collecting Data
-data_path = "Data/lynx_hare_data.csv"
+data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
@@ -34,7 +34,7 @@ t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
 rng = StableRNG(1111)
 groupsize = 5
 predsize = 5
-state = 4
+state = 2
 tspan = (minimum(t_train), maximum(t_train))
 
 fulltraj_losses = Float32[]
@@ -69,7 +69,6 @@ iters = 2
         function ude_dynamics!(du, u, p, t)
             û = U(u, p.vector_field_model, st)[1] # Network prediction
             du[1:end] = û[1:end]
-            #du[2] = û[2]
         end
 
         # Closure with the known parameter
@@ -143,7 +142,7 @@ iters = 2
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("Simulations/Results/sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
@@ -153,7 +152,7 @@ iters = 2
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
             scatter!(tp, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("Simulations/Results/sim-HL-ANODE-MS/Plots/Simulation $i.png")
+            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-ANODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(t_train, t, X_train, full_traj)
