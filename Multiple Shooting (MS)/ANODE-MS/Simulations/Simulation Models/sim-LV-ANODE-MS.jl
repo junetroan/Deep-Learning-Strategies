@@ -17,7 +17,7 @@ end
 groupsize = 5 # number of points in each shooting segment   
 predsize = 5 # number of points to predict per shooting segment
 iters = 2 # number of iterations of simulation
-state = 4 # number of state variables in the neural network
+state = 2 # number of state variables in the neural network
 
 tspan = (0.0f0, 10.0f0)
 rng = StableRNG(1111)
@@ -35,6 +35,8 @@ noise_magnitude2 = 62.3f-2
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 
 fulltraj_losses = Float32[]
+
+u0 = [Xₙ[1,1], 0]
 
 @time begin
     for i in 1:iters
@@ -59,8 +61,7 @@ fulltraj_losses = Float32[]
         # Define the hybrid model
         function ude_dynamics!(du, u, p, t, p_true)
             û = U(u, p.vector_field_model, st)[1] # Network prediction
-            du[1] = û[1]
-            du[2] = û[2]
+            du[1:end] = û[1:end]
         end
     
         # Closure with the known parameter
@@ -136,7 +137,7 @@ fulltraj_losses = Float32[]
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
     
         losses_df = DataFrame(loss = losses)
-        CSV.write("Simulations/Results/sim-LV-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
@@ -146,7 +147,7 @@ fulltraj_losses = Float32[]
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised ANODE-MS Model", xlabel = "Time", ylabel = "Population")
             scatter!(t, real[1,:], label = "Training Data")
             plot!(legend=:topright)
-            savefig("Simulations/Results/sim-LV-ANODE-MS/Plots/Simulation $i.png")
+            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-ANODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(t, Xₙ, full_traj)

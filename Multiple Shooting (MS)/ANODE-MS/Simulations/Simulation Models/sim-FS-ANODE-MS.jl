@@ -146,14 +146,14 @@ iters = 2
         full_traj_loss = final_loss(res_ms.u)
         push!(fulltraj_losses, full_traj_loss)
 
-        function plot_results(tp,tr, real, pred)
+        function plot_results(tp, real, pred)
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Interest Rate", xlabel = "Time", ylabel = "Interest Rate")
             scatter!(tp, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-ANODE-MS/Plots/Simulation $i.png")
         end
 
-        plot_results(t_train, t, X_train, full_traj)
+        plot_results(t_train, X_train, full_traj)
 
         if i==iters
             println("Simulation finished")
