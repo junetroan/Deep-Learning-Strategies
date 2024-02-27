@@ -17,6 +17,7 @@ gr()
 
 data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/F1 Telemetry/test-f1.csv"
 data = CSV.read(data_path, DataFrame, header = true)
+
 #Train/test Splits
 split_ration = 0.4
 train = data[1:Int(round(split_ration*size(data, 1))), :]
@@ -91,19 +92,23 @@ callback = function (p, l)
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), maxiters = 10000, verbose = false, callback=callback)
+res_ms = Optimization.solve(optprob, ADAM(), maxiters = 4500, verbose = false, callback=callback)
 
 
 losses_df = DataFrame(losses = losses)
-CSV.write("Multiple Shooting (MS)/ANODE-MS/Case Studies/F1 Telemetry/Losses 2.csv", losses_df, writeheader = false)
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Case Studies/F1 Telemetry/Losses 4.csv", losses_df, writeheader = false)
     
+
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
     plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Lap distance", ylabel = "Speed")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/F1 Telemetry/Test Simulation 2.png")
+    savefig("Multiple Shooting (MS)/ANODE-MS/Case Studies/F1 Telemetry/Test Simulation 4.png")
  end
 
 plot_results(tsteps, X_train, full_traj)
+
+
+plot(losses, label = "Losses", title = "Losses over Iterations", xlabel = "Iterations", ylabel = "Loss", yscale=:log10)
