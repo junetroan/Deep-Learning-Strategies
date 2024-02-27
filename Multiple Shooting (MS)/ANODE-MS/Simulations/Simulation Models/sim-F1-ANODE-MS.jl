@@ -1,4 +1,4 @@
-# sim-HL-ANODE-MS
+#sim-ANODE-MS-F1
 
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
@@ -7,39 +7,41 @@ using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 gr()
-#plotly()
 
-# Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/financial_time_series.csv"
-data = CSV.read(data_path, DataFrame)
+data_path = "test-f1.csv"
+data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
-split_ration = 0.75
+split_ration = 0.4
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
 # Data Cleaning and Normalization
-t = data[:, 1]
-ir = data[:, 2]
+t = 0.0:1.0:581
+speed = data[:,1]
 
-transformer = fit(ZScoreTransform, ir)
-X_train = StatsBase.transform(transformer, train[:, 2])
-X_test = StatsBase.transform(transformer, test[:, 2])
+train_data = convert(Vector{Float32}, train[:,1])
+test_data = convert(Vector{Float32}, test[:,1])
 
-t_train = collect(1:Int(round(split_ration*size(data, 1))))
-t_test = collect(Int(round(split_ration*size(data, 1))):size(data, 1))
+transformer = fit(ZScoreTransform, speed)
+X_train = StatsBase.transform(transformer, train_data)
+X_test = StatsBase.transform(transformer, test_data)
+t_test = convert(Vector{Float32}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
+t_train = convert(Vector{Float32}, collect(1:Int(round(split_ration*size(data, 1)))))
+tspan = (t_train[1], t_train[end])
+tsteps = range(tspan[1], tspan[2], length = length(X_train))
+
 
 # Define the experimental parameter
 rng = StableRNG(1111)
 groupsize = 5
 predsize = 5
 state = 2
-tspan = (minimum(t_train), maximum(t_train))
 
 fulltraj_losses = Float32[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
-iters = 2
+iters = 500
 
 @time begin
     for i in 1:iters
@@ -137,17 +139,17 @@ iters = 2
         adtype = Optimization.AutoZygote()  
         optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
         optprob = Optimization.OptimizationProblem(optf, params)
-        res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 250)
+        res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("sim-FS-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
         push!(fulltraj_losses, full_traj_loss)
 
         function plot_results(tp, real, pred)
-            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Interest Rate", xlabel = "Time", ylabel = "Interest Rate")
+            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
             scatter!(tp, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("sim-FS-ANODE-MS/Plots/Simulation $i.png")
@@ -162,5 +164,3 @@ iters = 2
 
     end
 end
-
-
