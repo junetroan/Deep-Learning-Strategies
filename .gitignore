@@ -23,5 +23,3 @@ docs/site/
 # environment.
 Manifest.toml
 # Master virtual environment
-
-master/
