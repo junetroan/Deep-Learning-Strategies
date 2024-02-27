@@ -96,7 +96,7 @@ u0 = [X_train[1], 0]
         adtype = Optimization.AutoZygote()
         optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
         optprob = Optimization.OptimizationProblem(optf, params)
-        res_ms = Optimization.solve(optprob, ADAM(), maxiters = 10000, verbose = false, callback=callback)
+        res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
         
         losses_df = DataFrame(losses = losses)
         CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
