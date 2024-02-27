@@ -90,7 +90,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 500, verbose = false)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false)
 
 # Predictions
 y_pred = prediction(res_pred.u)
