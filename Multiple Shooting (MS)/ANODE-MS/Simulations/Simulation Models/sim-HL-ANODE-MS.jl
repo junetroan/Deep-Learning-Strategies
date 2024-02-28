@@ -10,7 +10,7 @@ gr()
 #plotly()
 
 # Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
+data_path = "lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
@@ -142,7 +142,7 @@ iters = 2
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
@@ -150,9 +150,9 @@ iters = 2
 
         function plot_results(tp,tr, real, pred)
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
-            scatter!(tp, real, label = "Training Data")
+            plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-ANODE-MS/Plots/Simulation $i.png")
+            savefig("sim-HL-ANODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(t_train, t, X_train, full_traj)

@@ -107,7 +107,7 @@ u0 = [X_train[1], 0]
         
         function plot_results(t, real, pred)
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised PEM Model", xlabel = "Time", ylabel = "Population")
-            scatter!(t, real, label = "Training Data")
+            plot!(t, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("sim-FS-PEM/Plots/Simulation $i.png")
         end

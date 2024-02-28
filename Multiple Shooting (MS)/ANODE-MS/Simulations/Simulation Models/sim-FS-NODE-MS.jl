@@ -12,7 +12,7 @@ using CSV, Tables, DataFrames
 using StatsBase
 gr()
 
-data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/financial_time_series.csv"
+data_path = "financial_time_series.csv"
 data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
@@ -116,7 +116,7 @@ fulltraj_losses = Float32[]
         @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000; callback = callback)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-NODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("sim-FS-NODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         # Evaluate Single Shooting
         function loss_single_shooting(p)
@@ -131,9 +131,9 @@ fulltraj_losses = Float32[]
 
         function plot_results(tp, real, pred)
             plot(tp, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
-            scatter!(tp, real[1,:], label = "Training Data")
+            plot!(tp, real[1,:], label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-NODE-MS/Plots/Simulation $i.png")
+            savefig("sim-FS-NODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(t_train, X_train, full_traj)

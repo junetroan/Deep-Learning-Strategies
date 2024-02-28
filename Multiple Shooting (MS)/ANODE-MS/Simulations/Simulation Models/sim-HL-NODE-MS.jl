@@ -12,7 +12,7 @@ using CSV, Tables, DataFrames
 using StatsBase
 gr()
 
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
+data_path = "lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 datasize = length(X_train)
 
@@ -122,7 +122,7 @@ fulltraj_losses = Float32[]
         @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000; callback = callback)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-NODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("sim-HL-NODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         # Evaluate Single Shooting
         function loss_single_shooting(p)
@@ -139,7 +139,7 @@ fulltraj_losses = Float32[]
             plot(t, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
             scatter!(t, real[1,:], label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-HL-NODE-MS/Plots/Simulation $i.png")
+            savefig("sim-HL-NODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(X, full_traj)

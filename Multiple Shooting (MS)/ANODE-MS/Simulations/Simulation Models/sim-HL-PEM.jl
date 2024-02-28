@@ -14,7 +14,7 @@ using Statistics
 using StatsBase
 gr()
 
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
+data_path = "lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
@@ -101,7 +101,7 @@ u0 = [X_train[1],0]
         res_ms = Optimization.solve(optprob, ADAM(), maxiters = 10000, verbose = false, callback=callback)
         
         losses_df = DataFrame(losses = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("sim-FS-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = prediction(res_ms.u)
         full_traj_loss = predloss(res_ms.u)
@@ -111,7 +111,7 @@ u0 = [X_train[1],0]
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised PEM Model", xlabel = "Time", ylabel = "Population")
             scatter!(t, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-FS-PEM/Plots/Simulation $i.png")
+            savefig("sim-FS-PEM/Plots/Simulation $i.png")
         end
         
         plot_results(t, X_train, full_traj)

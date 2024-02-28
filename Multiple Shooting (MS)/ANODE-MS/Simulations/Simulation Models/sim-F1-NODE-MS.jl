@@ -134,7 +134,7 @@ fulltraj_losses = Float32[]
 
         function plot_results(tp, real, pred)
             plot(tp, pred, label = "Training Prediction", title="Iteration $i of Randomised NODE-MS Model", xlabel="Time", ylabel="Population")
-            scatter!(tp, real[1,:], label = "Training Data")
+            plot!(tp, real[1,:], label = "Training Data")
             plot!(legend=:topright)
             savefig("sim-F1-NODE-MS/Plots/Simulation $i.png")
         end

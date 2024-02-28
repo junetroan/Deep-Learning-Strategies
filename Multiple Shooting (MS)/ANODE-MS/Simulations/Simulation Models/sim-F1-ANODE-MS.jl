@@ -149,7 +149,7 @@ iters = 1
 
         function plot_results(tp, real, pred)
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
-            scatter!(tp, real, label = "Training Data")
+            plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("sim-F1-ANODE-MS/Plots/Simulation $i.png")
         end

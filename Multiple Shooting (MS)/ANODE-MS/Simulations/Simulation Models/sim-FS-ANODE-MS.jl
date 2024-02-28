@@ -10,7 +10,7 @@ gr()
 #plotly()
 
 # Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Financial System/financial_time_series.csv"
+data_path = "financial_time_series.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
@@ -148,7 +148,7 @@ iters = 2
 
         function plot_results(tp, real, pred)
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Interest Rate", xlabel = "Time", ylabel = "Interest Rate")
-            scatter!(tp, real, label = "Training Data")
+            plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("sim-FS-ANODE-MS/Plots/Simulation $i.png")
         end
