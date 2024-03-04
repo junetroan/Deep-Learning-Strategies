@@ -60,6 +60,7 @@ end
 
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
+
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
 # Predict function
@@ -93,24 +94,12 @@ optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback  = callback)
 
-#=
 # Predictions
-y_pred = prediction(res_pred.u)
+y_pred = prediction(res_ms.u)
 
 plot(y_pred[1,:])
-=#
-
 
 # Testing
-
-
-
-function simulator!(du,u,p,t)
-    û = U(u, p.vector_field_model, st)[1]
-    du[1:end] =  û[1:end]
-end
-
-
 ## Generating data
 tspan_test = (0.0f0, 40.0f0)
 prob_test = ODEProblem(lotka!, u0, tspan_test, p_)
@@ -118,9 +107,31 @@ solution_test = solve(prob_test, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 
 X_test = Array(solution_test)
 t_test = solution_test.t
 tspan_test = (t_test[1], t_test[end])
-tsteps = range(tspan_test[1], tspan_test[2], length = length(X_test[1,:]))
+tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test[1,:]))
+y_test = X_test[1,:]
 
-prob_test = ODEProblem(simulator!, u0 , tspan_test, params, saveat=tsteps)
-soln_nn = Array(solve(prob_test, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
+y_zoh2 = ConstantInterpolation(y_test, tsteps_test)
 
-plot(soln_nn[1,:])
+plot(t_test, y_test)
+plot!(y_zoh2)
+
+function simulator!(du,u,p,t)
+    û = U(u, p.vector_field_model, st)[1]
+    du[1:end] =  û[1:end]
+end
+
+params_test = ComponentVector{Float32}(vector_field_model = p)
+prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
+prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
+soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
+
+plot(t_test, soln_nn[1,:])
+
+
+function plot_results(t, real, real_new,  pred, pred_new)
+    plot(t, pred[1,:],label = "Training Prediction", title = "Training and Test Predicitons of PEM Model", xlabel = "Time", ylabel = "Population")
+    plot!(t, pred_new[1,pred[end]:end], label = "Test Prediction")
+    scatter!(t, real, label = "Training Data")
+    scatter!(t, real_new, label = "Test Data")
+    vline!(t[pred[end]], label = "Training/Test Split", color = :black)    
+end
