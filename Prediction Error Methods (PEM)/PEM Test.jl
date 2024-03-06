@@ -57,7 +57,6 @@ function predictor!(du,u,p,t)
     du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
 
-
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
 
@@ -126,6 +125,7 @@ prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
 soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
 plot(t_test, soln_nn[1,:])
+plot!(t_test, y_test)
 
 
 function plot_results(t, real, real_new,  pred, pred_new)

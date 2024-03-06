@@ -100,6 +100,7 @@ optprob = Optimization.OptimizationProblem(optf, params)
 y_pred = prediction(res_ms.u)
 
 plot(y_pred[1,:])
+plot!(y[1:end], label = "Training Data")
 
 # Testing
 ## Generating data
@@ -110,10 +111,13 @@ tsteps_test = range(t_test[1], t_test[end], length = length(X_test))
 tspan_test = (t_test[1], t_test[end])
 
 y_zoh2 = ConstantInterpolation(y_test, tsteps_test)
+Ks = res_ms.u.K
 
 function simulator!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
-    du[1:end] =  û[1:end]
+    yt = y_zoh2(t)
+    e =  yt .- û[1]
+    du[1:end] =  û[1:end] + Ks .* e
 end
 
 params_test = ComponentVector{Float32}(vector_field_model = p)
