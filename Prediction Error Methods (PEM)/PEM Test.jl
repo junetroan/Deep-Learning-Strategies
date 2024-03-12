@@ -40,14 +40,14 @@ noise_magnitude2 = 62.3f-2
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 y = Xₙ[1,:]
 
-
 # Definition of neural network
-state = 2
+state = 4
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
-K = Float32[0.214566, 0.928355]
+K = Float32[0.214566,0.028355, 0.01111, 0.022111]
 
 y_zoh = ConstantInterpolation(y, tsteps)
+u0 = [0.0f0 , 0.0f0, 0.0f0, 0.0f0]
 
 #Definition of the model 
 function predictor!(du,u,p,t)
@@ -59,7 +59,6 @@ end
 
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
-
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
 
 # Predict function
@@ -85,8 +84,7 @@ callback = function (θ, l)
     end
     return false
 end
-
-#p0 = [0.7, 1.0] 
+ 
 # Optimization to find the best hyperparameters
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
@@ -95,7 +93,6 @@ optprob = Optimization.OptimizationProblem(optf, params)
 
 # Predictions
 y_pred = prediction(res_ms.u)
-
 plot(y_pred[1,:])
 
 # Testing
@@ -108,10 +105,9 @@ t_test = solution_test.t
 tspan_test = (t_test[1], t_test[end])
 tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test[1,:]))
 y_test = X_test[1,:]
-
 y_zoh2 = ConstantInterpolation(y_test, tsteps_test)
 
-plot(t_test, y_test)
+plot(y_test)
 plot!(y_zoh2)
 
 function simulator!(du,u,p,t)
@@ -119,6 +115,7 @@ function simulator!(du,u,p,t)
     du[1:end] =  û[1:end]
 end
 
+u0 = [0.0f0, 0.0f0, 0.0f0, 0.0f0]
 params_test = ComponentVector{Float32}(vector_field_model = p)
 prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
 prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
@@ -126,7 +123,6 @@ soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25
 
 plot(t_test, soln_nn[1,:])
 plot!(t_test, y_test)
-
 
 function plot_results(t, real, real_new,  pred, pred_new)
     plot(t, pred[1,:],label = "Training Prediction", title = "Training and Test Predicitons of PEM Model", xlabel = "Time", ylabel = "Population")
