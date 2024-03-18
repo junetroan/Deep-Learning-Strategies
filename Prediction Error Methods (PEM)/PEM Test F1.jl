@@ -43,13 +43,13 @@ y_zoh = ConstantInterpolation(X_train, tsteps)
 
 iters = 2
 state = 2
-u0 = [X_train[1], 0]
+u0 = [0.0f0, 0.0f0]
 
 # Definition of neural network
 state = 2
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
-K = Float32[0.214566, 0.928355]
+K = Float32[0.214566, 0.028355]
 
 y_zoh = ConstantInterpolation(y, tsteps)
 
@@ -89,7 +89,6 @@ callback = function (θ, l)
     return false
 end
 
-#p0 = [0.7, 1.0] 
 # Optimization to find the best hyperparameters
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
@@ -98,26 +97,20 @@ optprob = Optimization.OptimizationProblem(optf, params)
 
 # Predictions
 y_pred = prediction(res_ms.u)
-
 plot(y_pred[1,:])
 plot!(y[1:end], label = "Training Data")
 
 # Testing
 ## Generating data
-
-
 y_test = X_test
 tsteps_test = range(t_test[1], t_test[end], length = length(X_test))
 tspan_test = (t_test[1], t_test[end])
 
 y_zoh2 = ConstantInterpolation(y_test, tsteps_test)
-Ks = res_ms.u.K
 
 function simulator!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
-    yt = y_zoh2(t)
-    e =  yt .- û[1]
-    du[1:end] =  û[1:end] + Ks .* e
+    du[1:end] =  û[1:end]
 end
 
 params_test = ComponentVector{Float32}(vector_field_model = p)
@@ -130,7 +123,6 @@ plot!(soln_nn[1,:], label = "Test Prediction")
 scatter!(t, real, label = "Training Data")
 scatter!(t, real_new, label = "Test Data")
 vline!(t[pred[end]], label = "Training/Test Split", color = :black)    
-
 
 
 function plot_results(t, real, real_new,  pred, pred_new)

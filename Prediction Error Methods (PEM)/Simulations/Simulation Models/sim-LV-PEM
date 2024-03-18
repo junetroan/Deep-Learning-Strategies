@@ -10,7 +10,6 @@ using OrdinaryDiffEq
 using OptimizationPolyalgorithms
 using DiffEqFlux
 using Plots
-#plotly()
 gr()
 
 # Producing data
@@ -27,7 +26,6 @@ tspan = (0.0f0, 10.0f0)
 prob = ODEProblem(lotka!, u0, tspan, p_)
 solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 X = Array(solution)
-
 t = solution.t
 tspan = (t[1], t[end])
 tsteps = range(tspan[1], tspan[2], length = length(X[1,:]))
@@ -42,7 +40,7 @@ y = Xₙ[1,:]
 # Interpolation of given data
 y_zoh = ConstantInterpolation(y, tsteps)
 
-iters = 10
+iters = 3
 state = 2
 
 fulltraj_losses = Float32[]
@@ -52,14 +50,17 @@ fulltraj_losses = Float32[]
 
         println("Simulation $i")
 
+        # Random initialisation
         rng1 = StableRNG(i+1)
         rng2 = StableRNG(i+2)
+        u0 = [y[1], rand(rng1, Float32, state-1)...]
+        K = rand(rng2, Float32, state)
 
+        # Neural network definition
         U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
         p, st = Lux.setup(rng1, U)
 
-        K = rand(rng2, Float32, 2)
-
+        # Definition of the model
         function predictor!(du,u,p,t)
             û = U(u, p.vector_field_model, st)[1]
             yt = y_zoh(t)
@@ -96,7 +97,7 @@ fulltraj_losses = Float32[]
         adtype = Optimization.AutoZygote()
         optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
         optprob = Optimization.OptimizationProblem(optf, params)
-        res_ms = Optimization.solve(optprob, ADAM(1e-2), maxiters = 5000, verbose = false, callback=callback)
+        res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
 
         losses_df = DataFrame(losses = losses)
         CSV.write("Prediction Error Methods (PEM)/Simulations/Results/Loss Data/Losses $i.csv", losses_df, writeheader = false)

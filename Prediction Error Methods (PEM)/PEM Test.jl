@@ -32,7 +32,6 @@ t = solution.t
 tspan = (t[1], t[end])
 tsteps = range(tspan[1], tspan[2], length = length(X[1,:]))
 
-
 # Adding noise
 x̄ = mean(X, dims = 2)
 noise_magnitude = 10f-3
@@ -47,7 +46,7 @@ p, st = Lux.setup(rng1, U)
 K = Float32[0.214566,0.028355, 0.01111, 0.022111]
 
 y_zoh = ConstantInterpolation(y, tsteps)
-u0 = [0.0f0 , 0.0f0, 0.0f0, 0.0f0]
+u0 = [y[1] , 0.0f0, 0.0f0, 0.0f0]
 
 #Definition of the model 
 function predictor!(du,u,p,t)
@@ -98,31 +97,34 @@ plot(y_pred[1,:])
 # Testing
 ## Generating data
 tspan_test = (0.0f0, 40.0f0)
-prob_test = ODEProblem(lotka!, u0, tspan_test, p_)
-solution_test = solve(prob_test, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
+u0_s = 5.0f0 * rand(rng, Float32, 2)
+prob_test = ODEProblem(lotka!, u0_s, tspan_test, p_)
+solution_test = solve(prob_test, AutoVern7(KenCarp4()), abstol = 1f-8, reltol = 1f-8, saveat = 0.25f0)
 X_test = Array(solution_test)
 t_test = solution_test.t
 tspan_test = (t_test[1], t_test[end])
 tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test[1,:]))
+
 y_test = X_test[1,:]
 y_zoh2 = ConstantInterpolation(y_test, tsteps_test)
 
 plot(y_test)
-plot!(y_zoh2)
+
 
 function simulator!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
     du[1:end] =  û[1:end]
 end
 
-u0 = [0.0f0, 0.0f0, 0.0f0, 0.0f0]
+u0 = [y_test[1], 0.0f0, 0.0f0, 0.0f0]
 params_test = ComponentVector{Float32}(vector_field_model = p)
 prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
 prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
-soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0))
+soln_nn = Array(solve(prob, Tsit5(), abstol = 1f-6, reltol = 1f-6, saveat = 0.25f0))
 
-plot(t_test, soln_nn[1,:])
-plot!(t_test, y_test)
+plot(soln_nn[1,:])
+
+plot!(y_test, label = "Real Data")
 
 function plot_results(t, real, real_new,  pred, pred_new)
     plot(t, pred[1,:],label = "Training Prediction", title = "Training and Test Predicitons of PEM Model", xlabel = "Time", ylabel = "Population")
