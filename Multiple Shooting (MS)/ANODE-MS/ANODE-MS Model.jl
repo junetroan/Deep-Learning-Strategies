@@ -1,16 +1,11 @@
-# ANODE-MS Model 
-# SciML Tools
+#ANODE-MS Model 2
 using Pkg
 using DifferentialEquations
 using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
-
-# Standard Libraries
 using LinearAlgebra, Statistics
-
-# External Libraries
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots
-plotly()
+gr()
 
 # Set a random seed for reproducible behaviour
 rng = StableRNG(1111)
@@ -32,7 +27,6 @@ println("solving ODE")
 # Add noise in terms of the mean
 X = Array(solution)
 t = solution.t
-
 x̄ = mean(X, dims = 2)
 noise_magnitude = 10f-3
 noise_magnitude2 = 62.3f-2
@@ -41,21 +35,23 @@ Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 plot(solution, alpha = 0.75, color = :black, label = ["True Data" nothing])
 scatter!(t, transpose(Xₙ), color = :red, label = ["Noisy Data" nothing])
 
+state = 2
+groupsize = 5
+predsize = 5
+
 # Simple NN to predict lotka-volterra dynamics
-U = Lux.Chain(Lux.Dense(2, 30, tanh),
-              Lux.Dense(30, 2))
+U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng, U)
 
 # Simple NN to predict initial points for use in multiple-shooting training
-U0_nn = Lux.Chain(Lux.Dense(5, 30, tanh), Lux.Dense(30, 1))
+U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30, state-1))
 p0, st0 = Lux.setup(rng, U0_nn)
 
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t, p_true)
     û = U(u, p.vector_field_model, st)[1] # Network prediction
-    du[1] = û[1]
-    du[2] = û[2]
+    du[1:end] = û[1:end]
 end
 
 # Closure with the known parameter
@@ -67,7 +63,6 @@ params = ComponentVector{Float32}(vector_field_model = p, initial_condition_mode
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = 0.25f0)
 
 # Splits the full trajectory into 1) shooting segments (targets)
-
 function group_x(X::Vector, groupsize, predictsize)
     parent = [X[i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(X) - max(groupsize, predictsize) + 1]
     parent = reduce(hcat, parent)
@@ -77,8 +72,6 @@ function group_x(X::Vector, groupsize, predictsize)
     return parent, targets, nn_predictors, u0
 end
 
-groupsize = 5
-predsize = 5
 pas, targets, nn_predictors, u0_vec = group_x(Xₙ[1,:], groupsize, predsize)
 
 #Checking loop
@@ -109,13 +102,26 @@ function loss(θ)
     prediction_error + continuity*10f0
 end
 
-@time loss(params)
+function predict_final(θ)
+    predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
+    u0_all = vcat(u0_vec[1], predicted_u0_nn)
+    prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
+    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), 
+    abstol = 1f-6, reltol = 1f-6, 
+    saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+    X̂
+end
 
-#Zygote.gradient(p -> loss(p), params)
+function final_loss(θ)
+    X̂ = predict_final(θ)
+    prediction_error = mean(abs2, Xₙ[1,:] .- X̂[1, :])
+    prediction_error
+end
 
 losses = Float32[]
-callback = function (p, l)
-    push!(losses, l)
+callback = function (θ, l)
+    push!(losses, final_loss(θ))
+
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
     end
@@ -127,30 +133,11 @@ optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
-function predict_final(θ)
-    predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
-    u0_all = vcat(u0_vec[1], predicted_u0_nn)
-    prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
-    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), 
-    abstol = 1f-6, reltol = 1f-6, 
-    saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
-    X̂
-end
+final_traj = predict_final(res_ms.u)[1,:]
+plot(final_traj)
+scatter!(Xₙ[1,:])
 
-full_traj = predict_final(res_ms.u)
-
-plot(full_traj[1, :])
-scatter!(Xₙ[1, :])
-
-function final_loss(θ)
-    X̂ = predict_final(θ)
-    prediction_error = mean(abs2, Xₙ[1,:] .- X̂[1, :])
-    prediction_error
-end
-
-ms_loss = loss(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
-println("Multiple Shooting Loss: ", ms_loss)
 println("Full Trajectory Loss: ",full_traj_loss)
 
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
@@ -174,12 +161,9 @@ prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
-
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
 saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
-
 updated_obsgrid = 0.0:0.25:40.0
-
 t1 = t
 t3 = updated_obsgrid[41:123] |> collect
 
@@ -191,7 +175,7 @@ function plot_results(t, real, pred, pred_new)
     scatter!(t3, solution_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/ms-test-results.png")
+    savefig("Results/ANODE-MS LV Training and Testing.png")
 end
 
 plot_results(t, Xₙ, full_traj2, prediction_new)
@@ -225,7 +209,6 @@ end
 
 plot_histogram(actual_loss)
 
-#=
 function plot_scatter(predicted, real)
     plot([minimum(predicted[1,:]), maximum(predicted[1,:])], [minimum(predicted[1,:]), maximum(predicted[1,:])], label="y=x", color=:red, title="Parity plot for the ANODE-MS model")
     scatter!(real[1,:], predicted[1,:], label = "Residuals", xlabel= "Actual values", ylabel="Predicted values", color=RGB(165/225,113/225,220/225))
