@@ -37,7 +37,6 @@ tspan_test = (t_test[1], t_test[end])
 tsteps_train = range(tspan_train[1], tspan_train[2], length = length(distance_train))
 tsteps_test = range(tspan_test[1], tspan_test[2], length = length(distance_test))
 
-
 transformer_distance = fit(ZScoreTransform, distance_train)
 d_train = StatsBase.transform(transformer_distance, distance_train)
 d_test = StatsBase.transform(transformer_distance, distance_test)
@@ -59,62 +58,141 @@ s_train_interpolation = LinearInterpolation(s_train, t_train)
 th_train_interpolation = LinearInterpolation(th_train, t_train)
 b_train_interpolation = LinearInterpolation(b_train, t_train)
 
+y_train = [s_train th_train b_train]'
+y_test = [s_test th_test b_test]'
+
 # Define the experimental parameter
+unknown_states = 1
+known_states  = 3
 groupsize = 5
 predsize = 5
-state = 5
+obsgrid = 5:5:length(t_train)
+state = unknown_states + known_states
 i = 1000
 rng1 = StableRNG(i)
 rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
 # Define the neural network
-U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
+U = Lux.Chain(Lux.Dense(2, 30, tanh), Lux.Dense(30, 2))
 
 # Get the initial parameters and state variables of the model
+
 p, st = Lux.setup(rng1, U)
 
 # Simple NN to predict initial points for use in multiple-shooting training
-U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30, state - 2))
+U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  1))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t)
-    du[1:end] = U([u[1:end];th_train_interpolation(t);b_train_interpolation(t)], p.vector_field_model)[1] # Network prediction
+    û = U(u, p.vector_field_model, st)[1] # Network prediction
+    du[1:end] = û[1:end]
 end
 
 # Closure with the known parameter
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-augmented_u0 = vcat(s_train[1], randn(rng3, Float32, state - 1))
+rands = randn(rng3, Float32, length(s_train), unknown_states)'
+augmented_u0 = vcat(y_train, rands)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
-prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
+prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
-function group_x(X::Vector, groupsize, predictsize)
-    parent = [X[i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(X) - max(groupsize, predictsize) + 1]
-    parent = reduce(hcat, parent)
-    targets = parent[1:groupsize,:]
-    nn_predictors = parent[1:predictsize,:]
-    u0 = parent[1, :]
-    return parent, targets, nn_predictors, u0
+
+
+for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1
+    println(i)
+    println(i + max(groupsize, predsize) - 1)
 end
 
-pas, targets, nn_predictors, u0_vec = group_x(s_train, groupsize, predsize)
+parent = [y_train[:,i: i + max(groupsize, predsize) - 1] for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1]
+parent[1]
+parent[2]
+parent[10]
+parent[101]
 
-function predict(θ)
+parent[1][1,:]
+parent[101][1,:]
+parent[101]
+
+parent[1:groupsize,:]
+
+parent[1][1,:]
+
+parent[:][1,:]
+test = parent[:][1,:]
+
+u0 = parent[:][1,1]
+
+parent[1][1,1]
+parent[2][1,1]
+parent[3][1,1]
+parent[4][1,1]
+parent[101][1,1]
+u0_nn11 = U0_nn(first[:,1], params.initial_condition_model, st0)[1]
+u0_nn12 = U0_nn(first[:,2], params.initial_condition_model, st0)[1]
+u0_nn1101 = U0_nn(first[:,101], params.initial_condition_model, st0)[1]
+u0_nn21 = U0_nn(second[:,1], params.initial_condition_model, st0)[1]
+u0_nn2101 = U0_nn(second[:,101], params.initial_condition_model, st0)[1]
+
+u0vec1 = u0_vec[1][1,1]
+u0vec2 = u0_vec[1][2,1]
+u0vec3 = u0_vec[1][3,1]
+
+u0all = vcat(u0vec1, u0_nn11)
+
+testerrr = remake(prob_nn, u0 = u0all, tspan = (t_train[1], t_train[groupsize]))
+
+u0_vec = [x[row, 1] for x in parent for row in 1:3]
+
+first_elements = [x[1, 1] for x in parent]
+
+[x[:,1] for x in parent]
+
+
+targets = vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...)
+
+
+function group_x(xdim, y , groupsize, predictsize)
+    parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
+    firsts =  hcat([parent[i][1, :] for i in 1:101]...)
+    seconds = hcat([parent[i][2, :] for i in 1:101]...)
+    thirds = hcat([parent[i][3, :] for i in 1:101]...)
+    targets = parent[1:groupsize,:]
+    u0 = [x[row,1] for x in parent for row in 1:known_states]
+    return parent, targets, firsts, seconds, thirds, u0
+end
+
+pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
+
+function fpredict(θ)
     function prob_func(prob, i, repeat)
-        u0_nn = U0_nn(nn_predictors[:, i], θ.initial_condition_model, st0)[1]
-        u0_all = vcat(u0_vec[i], u0_nn)
+        u0_nn_values = []
+        for j in 1:size(first_series, 2)
+            u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
+            push!(u0_nn_values, u0_nn)
+            
+            u0_nn = U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1]
+            push!(u0_nn_values, u0_nn)
+            
+            u0_nn = U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1]
+            push!(u0_nn_values, u0_nn)
+        end
+        u0_all = vcat(u0_vec[i], u0_nn_values[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = length(pas), sensealg = sensealg))
 end
 
-pred = predict(params)
+pred = fpredict(params)
+
+ #WORKING UNTIL HERE 💕🤓🥺
+
+pred[1,:,:]
 
 function loss(θ)
     X̂ = predict(θ)
@@ -122,6 +200,8 @@ function loss(θ)
     prediction_error = mean(abs2, targets .- X̂[1,:,:])
     prediction_error + continuity*10f0
 end
+
+lossezzz = loss(params)
 
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]

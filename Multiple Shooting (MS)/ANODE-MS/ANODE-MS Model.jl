@@ -22,6 +22,7 @@ u0 = 5.0f0 * rand(rng, Float32, 2)
 p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob = ODEProblem(lotka!, u0, tspan, p_)
 println("solving ODE")
+
 @time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
 # Add noise in terms of the mean
@@ -58,9 +59,11 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t, p_)
 
 # Construct ODE Problem
-augmented_u0 = vcat(u0[1], randn(rng, Float32, 1))
+augmented_u0 = vcat(Xₙ[1,:], randn(rng, Float32, 1))
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = 0.25f0)
+
+plot(prob_nn.u0)
 
 # Splits the full trajectory into 1) shooting segments (targets)
 function group_x(X::Vector, groupsize, predictsize)
@@ -74,11 +77,32 @@ end
 
 pas, targets, nn_predictors, u0_vec = group_x(Xₙ[1,:], groupsize, predsize)
 
+
+
+
+
+
 #Checking loop
 for i in 1:(groupsize-1):length(Xₙ[1,:]) - max(groupsize, predsize) + 1
     println(i)
     println(i + max(groupsize, predsize) - 1)
 end
+
+u0_nn1 = U0_nn(nn_predictors[:, 1], params.initial_condition_model, st0)[1] #1-element Vector{Float32}
+u0_nn2 = U0_nn(nn_predictors[:, 2], params.initial_condition_model, st0)[1]
+
+u0vec1 = u0_vec[1] #number
+u0vec2 = u0_vec[2]
+
+u0all = vcat(u0vec1, u0_nn1) #2-element Vector{Float32}
+
+function prob_func(prob, i, repeat, θ)
+    u0_nn = U0_nn(nn_predictors[:, i], θ.initial_condition_model, st0)[1]
+    u0_all = vcat(u0_vec[i], u0_nn)
+    remake(prob, u0 = u0_all, tspan = (t[1], t[groupsize]))
+end
+
+prob_func(prob_nn, 3, 1, params)
 
 function predict(θ)
     function prob_func(prob, i, repeat)
