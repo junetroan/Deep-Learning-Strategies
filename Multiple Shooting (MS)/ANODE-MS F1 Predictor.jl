@@ -164,12 +164,36 @@ end
 
 pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
 
-function fpredict(θ)
+#=
+function tester()
+    u0_nn_first = []
+    u0_nn_second = []
+    u0_nn_third = []
+    for j in 1:size(first_series, 2)
+        u0_nn = U0_nn(first_series[:, j], params.initial_condition_model, st0)[1]
+        push!(u0_nn_first, u0_nn)
+                
+        u0_nn = U0_nn(second_series[:, j], params.initial_condition_model, st0)[1]
+        push!(u0_nn_second, u0_nn)
+                
+        u0_nn = U0_nn(third_series[:, j], params.initial_condition_model, st0)[1]
+        push!(u0_nn_third, u0_nn)
+    end
+    return u0_nn_first, u0_nn_second, u0_nn_third
+end
+
+
+first, second, third = tester()
+
+preds = [first second third]'
+test_preds = reduce(vcat, preds[:][:])
+=#
+
+function predictor(θ)
     function prob_func(prob, i, repeat)
         u0_nn_first = []
         u0_nn_second = []
         u0_nn_third = []
-        u0_nn_values = []
         for j in 1:size(first_series, 2)
             u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
             push!(u0_nn_first, u0_nn)
@@ -180,23 +204,27 @@ function fpredict(θ)
             u0_nn = U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1]
             push!(u0_nn_third, u0_nn)
         end
-        u0_all = vcat(u0_vec[i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
+
+        preds = [u0_nn_first u0_nn_second u0_nn_third]'
+        test_preds = reduce(vcat, preds[:][:])
+
+        u0_all = vcat(u0_vec[i], test_preds[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = length(pas), sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
-pred = fpredict(params)
-
- #WORKING UNTIL HERE 💕🤓🥺
+pred = predictor(params)
 
 pred[1,:,:]
 
+ #WORKING UNTIL HERE 💕🤓🥺
+
 function loss(θ)
-    X̂ = predict(θ)
+    X̂ = predictor(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
     prediction_error = mean(abs2, targets .- X̂[1,:,:])
     prediction_error + continuity*10f0
