@@ -74,7 +74,7 @@ rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
 # Define the neural network
-U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
+U = Lux.Chain(Lux.Dense(known_states*2, 30, tanh), Lux.Dense(30, known_states*2))
 
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
@@ -158,7 +158,7 @@ function group_x(xdim, y , groupsize, predictsize)
     seconds = hcat([parent[i][2, :] for i in 1:101]...)
     thirds = hcat([parent[i][3, :] for i in 1:101]...)
     targets = reshape(vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...), groupsize, 303)
-    u0 = [x[row,1] for x in parent for row in 1:known_states]
+    u0 = reshape([x[row,1] for x in parent for row in 1:known_states], known_states, 101)
     return parent, targets, firsts, seconds, thirds, u0
 end
 
@@ -184,10 +184,8 @@ end
 
 
 first, second, third = tester()
-
-preds = [first second third]'
-test_preds = reduce(vcat, preds[:][:])
-u0_all = vcat(u0_vec[1], test_preds[1])
+u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
+u0_all = vcat(u0_vec[1,1], first[1], u0_vec[2,1], second[1], u0_vec[3,1], third[1])
 
 function predictor(θ)
     function prob_func(prob, i, repeat)
@@ -205,23 +203,20 @@ function predictor(θ)
             push!(u0_nn_third, u0_nn)
         end
 
-        preds = [u0_nn_first u0_nn_second u0_nn_third]'
-        test_preds = reduce(vcat, preds[:][:])
-
-        u0_all = vcat(u0_vec[i], test_preds[i])
+        u0_all = vcat(u0_vec[1,i], u0_nn_first[i], u0_vec[2,i], u0_nn_second[i], u0_vec[3,i], u0_nn_third[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = 101, sensealg = sensealg))
 end
 
 pred = predictor(params)
 
-pred[1,:,:]
+pred[1,1,:]
 
-
+plot(pred[1,1,:], pred[1,])
 
 function loss(θ)
     X̂ = predictor(θ)
