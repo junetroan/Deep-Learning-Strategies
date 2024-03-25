@@ -77,7 +77,6 @@ rng3 = StableRNG(i+3)
 U = Lux.Chain(Lux.Dense(2, 30, tanh), Lux.Dense(30, 2))
 
 # Get the initial parameters and state variables of the model
-
 p, st = Lux.setup(rng1, U)
 
 # Simple NN to predict initial points for use in multiple-shooting training
@@ -99,8 +98,7 @@ augmented_u0 = vcat(y_train, rands)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
-
-
+#=
 for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1
     println(i)
     println(i + max(groupsize, predsize) - 1)
@@ -152,7 +150,7 @@ first_elements = [x[1, 1] for x in parent]
 
 
 targets = vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...)
-
+=#
 
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
@@ -168,18 +166,21 @@ pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_trai
 
 function fpredict(θ)
     function prob_func(prob, i, repeat)
+        u0_nn_first = []
+        u0_nn_second = []
+        u0_nn_third = []
         u0_nn_values = []
         for j in 1:size(first_series, 2)
             u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_values, u0_nn)
+            push!(u0_nn_first, u0_nn)
             
             u0_nn = U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_values, u0_nn)
+            push!(u0_nn_second, u0_nn)
             
             u0_nn = U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_values, u0_nn)
+            push!(u0_nn_third, u0_nn)
         end
-        u0_all = vcat(u0_vec[i], u0_nn_values[i])
+        u0_all = vcat(u0_vec[i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
