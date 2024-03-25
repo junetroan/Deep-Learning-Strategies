@@ -74,7 +74,7 @@ rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
 # Define the neural network
-U = Lux.Chain(Lux.Dense(2, 30, tanh), Lux.Dense(30, 2))
+U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
 
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
@@ -157,14 +157,14 @@ function group_x(xdim, y , groupsize, predictsize)
     firsts =  hcat([parent[i][1, :] for i in 1:101]...)
     seconds = hcat([parent[i][2, :] for i in 1:101]...)
     thirds = hcat([parent[i][3, :] for i in 1:101]...)
-    targets = parent[1:groupsize,:]
+    targets = reshape(vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...), groupsize, 303)
     u0 = [x[row,1] for x in parent for row in 1:known_states]
     return parent, targets, firsts, seconds, thirds, u0
 end
 
 pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
 
-#=
+
 function tester()
     u0_nn_first = []
     u0_nn_second = []
@@ -187,7 +187,7 @@ first, second, third = tester()
 
 preds = [first second third]'
 test_preds = reduce(vcat, preds[:][:])
-=#
+u0_all = vcat(u0_vec[1], test_preds[1])
 
 function predictor(θ)
     function prob_func(prob, i, repeat)
@@ -221,7 +221,7 @@ pred = predictor(params)
 
 pred[1,:,:]
 
- #WORKING UNTIL HERE 💕🤓🥺
+
 
 function loss(θ)
     X̂ = predictor(θ)
@@ -232,18 +232,37 @@ end
 
 lossezzz = loss(params)
 
+
+#WORKING UNTIL HERE 💕🤓🥺
+
+first_series[:, 1]
+U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
+pred_u0_nn_first = U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
+pred_u0_nn_second = U0_nn(second_series[:, 1], params.initial_condition_model, st0)[1]
+pred_u0_nn_third = U0_nn(third_series[:, 1], params.initial_condition_model, st0)[1]
+pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
+u0_1 = vcat(u0_vec[1], pred_u0_nn)
+
 function predict_final(θ)
-    predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
-    u0_all = vcat(u0_vec[1], predicted_u0_nn)
+    pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn_second = U0_nn(second_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
+    u0_all = vcat(u0_vec[1], pred_u0_nn)
+
     prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
+
+   # no longer updates u0 nn
     X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
     saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
     X̂
 end
 
+predict_final(params)
+
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, s_train .- X̂[1, :])
+    prediction_error = mean(abs2, s_train .- X̂[1, :, :])
     prediction_error
 end
 
@@ -256,6 +275,8 @@ callback = function (θ, l)
     end
     return false
 end
+
+ 
 
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)

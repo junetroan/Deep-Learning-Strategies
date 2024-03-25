@@ -126,6 +126,8 @@ function loss(θ)
     prediction_error + continuity*10f0
 end
 
+U0_nn(nn_predictors[:,1], params.initial_condition_model, st0)[1]
+
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
