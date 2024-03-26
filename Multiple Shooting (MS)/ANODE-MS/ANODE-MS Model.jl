@@ -117,7 +117,10 @@ function predict(θ)
     p=θ, trajectories = length(u0_vec), sensealg = sensealg))#[1,:,:]
 end
 
-@time predict(params)
+preds =  predict(params)
+
+prediction_error = mean(abs2, targets .- preds[1,:,:])
+
 
 function loss(θ)
     X̂ = predict(θ)
