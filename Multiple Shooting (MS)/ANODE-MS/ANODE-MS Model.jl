@@ -77,11 +77,6 @@ end
 
 pas, targets, nn_predictors, u0_vec = group_x(Xₙ[1,:], groupsize, predsize)
 
-
-
-
-
-
 #Checking loop
 for i in 1:(groupsize-1):length(Xₙ[1,:]) - max(groupsize, predsize) + 1
     println(i)

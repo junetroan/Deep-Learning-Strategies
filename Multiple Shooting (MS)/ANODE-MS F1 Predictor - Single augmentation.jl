@@ -307,11 +307,22 @@ res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 #WORKING UNTIL HERE 💕🤓🥺
 
 losses_df = DataFrame(loss = losses)
-CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 26.03.24.csv", losses_df, writeheader = false)
 
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
-push!(fulltraj_losses, full_traj_loss)
+
+
+function plot_training(tp, real, pred)
+    plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
+    plot!(tp, real, label = "Training Data")
+    plot!(legend=:topright)
+    savefig("Results/F1/Plots/ANODE-MS F1 Training with Single Augmentation - 26.03.24.png")
+end
+
+plot_training(t_train, y_train[1,:], full_traj[2,:])
+
+
 
 function predict_test(θ)
     pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
@@ -326,17 +337,19 @@ function predict_test(θ)
     X̂
 end
 
+##### Based on plot no need in testing, since training was unsuccessful.... 
+
 test_pred = predict_test(res_ms.u)
 test = test_pred[2,:]
 t1 = t_train
 t3 = t_test # Check whether this starts at the end of the t_train
 
 function plot_results(t1, t3, pred, pred_new, real, sol_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model prediction F1 telemetry", xlabel = "Time", ylabel = "Speed")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
     scatter!(t1, real[1,:], label = "Training Data")
     scatter!(t3, sol_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/ANODE-MS F1 Training and Testing with Single Augmentation.png")
+    savefig("Results/F1/Plots/ANODE-MS F1 Training and Testing with Single Augmentation - 26.03.24.png")
 end
