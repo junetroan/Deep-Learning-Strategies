@@ -313,11 +313,30 @@ full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 push!(fulltraj_losses, full_traj_loss)
 
-function plot_results(tp, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
-    plot!(tp, real, label = "Training Data")
-    plot!(legend=:topright)
-    savefig("sim-F1-ANODE-MS/Plots/Simulation $i.png")
+function predict_test(θ)
+    pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn_second = U0_nn(second_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1]
+    pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
+    u0_all = vcat(u0_vec[1], pred_u0_nn)
+    prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all)
+
+    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
+    saveat = t_test, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+    X̂
 end
 
-plot_results(t_train, X_train, full_traj)
+test_pred = predict_test(res_ms.u)
+test = test_pred[2,:]
+t1 = t_train
+t3 = t_test # Check whether this starts at the end of the t_train
+
+function plot_results(t1, t3, pred, pred_new, real, sol_new)
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot!(t3, pred_new[1,41:123], label = "Test Prediction")
+    scatter!(t1, real[1,:], label = "Training Data")
+    scatter!(t3, sol_new[1,41:123], label = "Test Data")
+    vline!([t1[41]], label = "Training/Test Split")
+    plot!(legend=:topright)
+    savefig("Results/ANODE-MS F1 Training and Testing with Single Augmentation.png")
+end

@@ -187,6 +187,8 @@ scatter!(Xₙ[1, :])
 p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
+
+
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
