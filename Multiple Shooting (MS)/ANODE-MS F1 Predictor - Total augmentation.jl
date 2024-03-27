@@ -93,8 +93,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-rands = randn(rng3, Float32, length(s_train), unknown_states)'
-augmented_u0 = vcat(y_train, rands)
+rands = randn(rng3, Float32, length(s_train), known_states)'
+augmented_u0 = vcat(rands, y_train)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
@@ -152,6 +152,7 @@ first_elements = [x[1, 1] for x in parent]
 targets = vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...)
 =#
 
+
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
     firsts =  hcat([parent[i][1, :] for i in 1:101]...)
@@ -159,76 +160,45 @@ function group_x(xdim, y , groupsize, predictsize)
     thirds = hcat([parent[i][3, :] for i in 1:101]...)
     targets = reshape(vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...), groupsize, 303)
     u0 = reshape([x[row,1] for x in parent for row in 1:known_states], known_states, 101)
+    parent = cat(parent..., dims=3)
     return parent, targets, firsts, seconds, thirds, u0
 end
 
 pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
 
-
-function tester()
-    u0_nn_first = []
-    u0_nn_second = []
-    u0_nn_third = []
-    for j in 1:size(first_series, 2)
-        u0_nn = U0_nn(first_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_first, u0_nn)
-                
-        u0_nn = U0_nn(second_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_second, u0_nn)
-                
-        u0_nn = U0_nn(third_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_third, u0_nn)
-    end
-    return u0_nn_first, u0_nn_second, u0_nn_third
-end
-
-
-first, second, third = tester()
-u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
-u0_all = vcat(u0_vec[1,1], first[1], u0_vec[2,1], second[1], u0_vec[3,1], third[1])
-
-function predictor(θ)
+function tpredictor(θ)
     function prob_func(prob, i, repeat)
-        u0_nn_first = []
-        u0_nn_second = []
-        u0_nn_third = []
-        for j in 1:size(first_series, 2)
-            u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_first, u0_nn)
-            
-            u0_nn = U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_second, u0_nn)
-            
-            u0_nn = U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_third, u0_nn)
-        end
-
-        u0_all = vcat(u0_vec[1,i], u0_nn_first[i], u0_vec[2,i], u0_nn_second[i], u0_vec[3,i], u0_nn_third[i])
+        u0_nn_first = [U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(first_series, 2)]
+        u0_nn_second = [U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(second_series, 2)]
+        u0_nn_third = [U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(third_series, 2)]
+        u0_all = vcat(u0_vec[1,i], u0_vec[2,i], u0_vec[3,i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
+    Array(solve(shooting_problem, verbose = false, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
     p=θ, saveat = t_train, trajectories = 101, sensealg = sensealg))
 end
 
-pred = predictor(params)
 
-pred[1,1,:]
+pred = tpredictor(params)
 
-plot(pred[1,1,:], pred[1,])
+
+
 
 function loss(θ)
-    X̂ = predictor(θ)
+    X̂ = tpredictor(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
-    prediction_error = mean(abs2, targets .- X̂[1,:,:])
+    prediction_error = mean(abs2, pas .- X̂[4:end,:,:])
     prediction_error + continuity*10f0
 end
 
 lossezzz = loss(params)
 
 
-#WORKING UNTIL HERE 💕🤓🥺
+
+#=
+
 
 first_series[:, 1]
 U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
@@ -237,13 +207,15 @@ pred_u0_nn_second = U0_nn(second_series[:, 1], params.initial_condition_model, s
 pred_u0_nn_third = U0_nn(third_series[:, 1], params.initial_condition_model, st0)[1]
 pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
 u0_1 = vcat(u0_vec[1], pred_u0_nn)
+=#
+
 
 function predict_final(θ)
     pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
     pred_u0_nn_second = U0_nn(second_series[:, 1], θ.initial_condition_model, st0)[1]
     pred_u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1]
     pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
-    u0_all = vcat(u0_vec[1], pred_u0_nn)
+    u0_all = vcat(u0_vec[1,1], u0_vec[2,1], u0_vec[3,1], pred_u0_nn)
 
     prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
 
@@ -255,9 +227,10 @@ end
 
 predict_final(params)
 
+
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, s_train .- X̂[1, :, :])
+    prediction_error = mean(abs2, y_train .- X̂[4:end, :, :])
     prediction_error
 end
 
@@ -271,12 +244,12 @@ callback = function (θ, l)
     return false
 end
 
- 
-
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+
+#WORKING UNTIL HERE 💕🤓🥺
 
 losses_df = DataFrame(loss = losses)
 CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)

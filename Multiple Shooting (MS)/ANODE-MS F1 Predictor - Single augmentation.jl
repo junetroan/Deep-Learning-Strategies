@@ -94,7 +94,7 @@ nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
 rands = randn(rng3, Float32, length(s_train), unknown_states)'
-augmented_u0 = vcat(y_train, rands)
+augmented_u0 = vcat(rands, y_train)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
@@ -170,7 +170,7 @@ function group_x(xdim, y , groupsize, predictsize)
     seconds = hcat([parent[i][2, :] for i in 1:101]...)
     thirds = hcat([parent[i][3, :] for i in 1:101]...)
     targets = reshape(vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...), groupsize, 303)
-    parent = cat(pt..., dims=3)
+    parent = cat(parent..., dims=3)
     u0 = firsts[1,:]
     return parent, targets, firsts, seconds, thirds, u0
 end
@@ -246,6 +246,8 @@ all_preds = [pred[1,:,:] pred[2,:,:] pred[3,:,:]]'
 pred[2:end,:,:] .- ps
 =#
 
+pred = tpredictor(params)
+
 function loss(θ)
     X̂ = tpredictor(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
@@ -302,7 +304,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 #WORKING UNTIL HERE 💕🤓🥺
 
