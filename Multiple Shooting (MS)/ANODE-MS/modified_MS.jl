@@ -1,3 +1,6 @@
+# Created on Monday 8th of April by collaboration of Vinicius Santana Viena and June Mari Berge Trøan
+
+
 # GENERATING DATA TO TEST
 using DifferentialEquations
 using SciMLSensitivity
@@ -106,24 +109,24 @@ continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
 continuity_term = 10.0
 params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
 
+# Modified multiple_shoot method 
 multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
     continuity_term)
-
 
 function loss_multiple_shooting(p)
     return multiple_shoot_mod(p, x, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size; continuity_term)
 end
 
 
-loss_multiple_shooting(params)
+loss_multiple_shooting(params) # Works! 😍
 
 function predict_final(θ)
     return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
 end
 
 ############################### Needs modifications below ####################################################################################################
-predict_final(params)
+predict_final(params) # ERROR: type NamedTuple has no field layer_1
 
 function final_loss(θ)
     X̂ = predict_final(θ)
