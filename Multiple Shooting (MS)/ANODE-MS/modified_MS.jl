@@ -113,39 +113,3 @@ params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
 multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
     continuity_term)
-
-function loss_multiple_shooting(p)
-    return multiple_shoot_mod(p, x, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size; continuity_term)
-end
-
-
-loss_multiple_shooting(params) # Works! 😍
-
-function predict_final(θ)
-    return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
-end
-
-############################### Needs modifications below ####################################################################################################
-predict_final(params) # ERROR: type NamedTuple has no field layer_1
-
-function final_loss(θ)
-    X̂ = predict_final(θ)
-    prediction_error = mean(abs2, x .- X̂[1, :])
-    prediction_error
-end
-
-losses = Float32[]
-
-callback = function (p, l, preds; doplot = false)
-    push!(losses, final_loss(p))
-    if length(losses) % 50 == 0
-        println("Current loss after $(length(losses)) iterations: $(losses[end])")
-
-    end
-    return false
-end
-
-adtype = Optimization.AutoZygote()
-optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shooting(x), adtype)
-optprob = Optimization.OptimizationProblem(optf,params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters=5000; callback = callback)
