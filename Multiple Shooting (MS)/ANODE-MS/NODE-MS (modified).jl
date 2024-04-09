@@ -42,7 +42,6 @@ params = ComponentVector{Float32}(vector_field_model = p)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
 
-
 datasize = size(x, 1)
 tspan = (0.0f0, 10.0f0) # Original (0.0f0, 10.0f0
 tsteps = range(tspan[1], tspan[2]; length = datasize)
@@ -114,25 +113,12 @@ function loss_multiple_shooting(p)
 end
 
 
-loss_multiple_shooting(params) # Works! 😍
-
-function predict_final(θ)
-    return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
-end
-
-############################### Needs modifications below ####################################################################################################
-predict_final(params) # ERROR: type NamedTuple has no field layer_1
-
-function final_loss(θ)
-    X̂ = predict_final(θ)
-    prediction_error = mean(abs2, x .- X̂[1, :])
-    prediction_error
-end
+loss_multiple_shooting(params) 
 
 losses = Float32[]
 
 callback = function (p, l, preds; doplot = false)
-    push!(losses, final_loss(p))
+    push!(losses, loss_multiple_shooting(p)[1])
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
 
@@ -144,3 +130,5 @@ adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shooting(x), adtype)
 optprob = Optimization.OptimizationProblem(optf,params)
 @time res_ms = Optimization.solve(optprob, ADAM(), maxiters=5000; callback = callback)
+
+losses[end]
