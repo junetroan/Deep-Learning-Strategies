@@ -1,5 +1,8 @@
 # Deep-Learning-Strategies
-Deep learning strategies for time series forecasting
+Deep learning strategies for time series forecasting.
+
+## Developed strategies
+
 
 
 ## Status per 18.03.2024
