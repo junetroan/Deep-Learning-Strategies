@@ -23,32 +23,27 @@ _**Note! Loss Function, Current Status and Results need to be updated according 
 - To be developed ✨
 - In development ⏳
 - Ready for simulation 🔜
+- Ready to run 🏃🏼‍♀️
 - Results obtained ✅
 - Results analysed 📈
 
 | Model | Case Study | Loss Function | Current Status | Results |
 |----------|----------|----------|----------|----------|
-|ANODE-MS | Lotka Volterra | Continuity + Prediction Error | | |
-|         | Lotka Volterra | Total Trajectory Loss |  | |
-|         | Hare Lynx      | Continuity + Prediction Error  |  | |
-|         | Hare Lynx      | Total Trajectory Loss | | |
-|         | NASDAQ Composite      | Total Trajectory Loss | | |
-|         | F1 telemetry      | Total Trajectory Loss | | |
-|ANODE-EH | Lotka Volterra | Continuity + Prediction Error | | |
-|         | Lotka Volterra | Total Trajectory Loss |  | |
-|MNODE-MS  | Lotka Volterra | Continuity + Prediction Error  | | |
-|         | Lotka Volterra | Total Trajectory Loss | | |
-|         | Hare Lynx      | Continuity + Prediction Error  | | |
-|         | Hare Lynx      | Total Trajectory Loss | | |
-|         | NASDAQ Composite      | Total Trajectory Loss | | |
-|         | F1 telemetry      | Total Trajectory Loss | | |
-|NODE-MS  | Lotka Volterra | Continuity + Prediction Error  | | |
-|         | Lotka Volterra | Total Trajectory Loss |  | |
-|         | Hare Lynx      | Continuity + Prediction Error  | | |
-|         | Hare Lynx      | Total Trajectory Loss | | |
-|         | NASDAQ Composite      | Total Trajectory Loss | | |
-|         | F1 telemetry      | Total Trajectory Loss | | |
-|NPEM      | Lotka Volterra | MSE  | | |
-|         | Hare Lynx      | MSE  | | |
-|         | NASDAQ Composite      | MSE |  | |
-|         | F1 telemetry      | MSE | | |
+|ANODE-MS | Lotka Volterra | Total Trajectory Loss | Results obtained ✅ | |
+|         | Hare Lynx      | Total Trajectory Loss | Ready for simulation 🔜 | |
+|         | NASDAQ Composite      | Total Trajectory Loss | Ready to run 🏃🏼‍♀️ | |
+|         | F1 telemetry      | Total Trajectory Loss | Ready to run 🏃🏼‍♀️ | |
+|ANODE-EH | Lotka Volterra | Continuity + Prediction Error | Results obtained ✅ | |
+|         | Lotka Volterra | Total Trajectory Loss | To be developed ✨ | |
+|MNODE-MS  | Lotka Volterra | Total Trajectory Loss   | To be developed ✨ | |
+|         | Hare Lynx      | Total Trajectory Loss | To be developed ✨ | |
+|         | NASDAQ Composite      | Total Trajectory Loss | To be developed ✨ | |
+|         | F1 telemetry      | Total Trajectory Loss | To be developed ✨ | |
+|NODE-MS  | Lotka Volterra |  Total Trajectory Loss  | Results obtained ✅ | |
+|         | Hare Lynx      | Total Trajectory Loss |  Ready for simulation 🔜 | |
+|         | NASDAQ Composite      | Total Trajectory Loss | To be developed ✨ | |
+|         | F1 telemetry      | Total Trajectory Loss | To be developed ✨ | |
+|NPEM      | Lotka Volterra | MSE  | Results obtained ✅ | |
+|         | Hare Lynx      | MSE  | Ready to run 🏃🏼‍♀️| |
+|         | NASDAQ Composite      | MSE | To be developed ✨ | |
+|         | F1 telemetry      | MSE | Ready to run 🏃🏼‍♀️| |
