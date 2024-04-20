@@ -1,6 +1,5 @@
 # Created on Monday 8th of April by collaboration of Vinicius Santana Viena and June Mari Berge Trøan
 
-
 # GENERATING DATA TO TEST
 using DifferentialEquations
 using SciMLSensitivity
