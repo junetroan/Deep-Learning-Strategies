@@ -13,6 +13,7 @@ using Distributions
 
 gr()
 rng = StableRNG(1111)
+
 function lotka!(du, u, p, t)
     α, β, γ, δ = p
     du[1] = α * u[1] - β * u[2] * u[1]
@@ -99,17 +100,64 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
         end
     end
 
-return loss, group_predictions
+    return loss, group_predictions
 end
 
 #Testing
 # Calculate multiple shooting loss
 loss_function(data, pred) = sum(abs2, data - pred)
 continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
+predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
+tester_pred_ss = predict_single_shooting(params.vector_field_model)
+
+function loss_single_shooting(p)
+    pred = predict_single_shooting(p)
+    l = loss_function(x, pred[1,:])
+    return l, pred
+end
+
+ls, ps = loss_single_shooting(params.vector_field_model)
+
 continuity_term = 10.0
 params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
+#lossses, preds = predict_single_shooting(params.p)
 
 # Modified multiple_shoot method 
 multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
     continuity_term)
+
+function loss_multiple_shoot(p)
+    return multiple_shoot_mod(p, x, tsteps, prob_node, loss_function,
+        continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
+        continuity_term)
+end
+
+test_multiple_shoot = loss_multiple_shoot(params)
+test_multiple_shoot[1]
+
+losses = Float32[]
+
+callback = function (p, l)
+    push!(losses, loss_multiple_shoot(p)[1])
+    if length(losses) % 50 == 0
+        println("Current loss after $(length(losses)) iterations: $(losses[end])")
+
+    end
+    return false
+end
+
+adtype = Optimization.AutoZygote()
+optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
+optprob = Optimization.OptimizationProblem(optf, params)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback  = callback)
+
+loss_ms, _ = loss_single_shooting(res_ms.u)
+println("Multiple shooting loss: $loss_ms")
+
+prob_nn_updates = remake(prob_node, p = res_ms.u, u0 = u0)
+predictions = Array(solve(prob_nn_updates, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
+
+
+
+

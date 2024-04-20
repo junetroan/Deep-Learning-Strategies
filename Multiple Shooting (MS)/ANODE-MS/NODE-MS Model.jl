@@ -60,6 +60,8 @@ function loss_multiple_shooting(p)
                           group_size; continuity_term)
 end
 
+loss_multiple_shooting(ComponentArray(p_init))
+
 function predict_final(θ)
     return Array(neuralode([u0[1]; zeros(state -1)], θ, st)[1])
 end

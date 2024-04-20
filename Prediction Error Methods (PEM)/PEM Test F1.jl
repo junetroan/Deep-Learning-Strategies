@@ -60,7 +60,6 @@ function predictor!(du,u,p,t)
     e = yt .- û[1]
     du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
-
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat=tsteps)
 soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0))
