@@ -166,7 +166,7 @@ println("Full Trajectory Loss: ",full_traj_loss)
 
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
-res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
 
 print(losses[end])
 

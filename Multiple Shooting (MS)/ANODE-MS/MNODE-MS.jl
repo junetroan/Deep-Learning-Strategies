@@ -157,6 +157,5 @@ optprob = Optimization.OptimizationProblem(optf, params)
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
 preds = predict_single_shooting(res_ms.u.θ)
 
-
 plot(preds[1, :])
 scatter!(x)
