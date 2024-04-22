@@ -1,5 +1,3 @@
-# Created on Monday 8th of April by collaboration of Vinicius Santana Viena and June Mari Berge Trøan
-
 
 # GENERATING DATA TO TEST
 using DifferentialEquations
@@ -162,7 +160,7 @@ iters = 2
         @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000) #callback  = callback,
 
         losses_df = DataFrame(loss = losses)
-        #CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         loss_ms, _ = loss_single_shooting(res_ms.u.θ)
         preds = predict_single_shooting(res_ms.u.θ)
@@ -171,10 +169,10 @@ iters = 2
         #scatter!(x)
 
         function plot_results(real, pred)
-            plot(t, pred, label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
+            plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
             scatter!(t, real[1,:], label = "Training Data")
             plot!(legend=:topright)
-            #savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
+            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(x, preds)

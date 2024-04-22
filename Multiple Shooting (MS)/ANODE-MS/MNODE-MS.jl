@@ -46,7 +46,6 @@ params = ComponentVector{Float32}(vector_field_model = p)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
 
-
 datasize = size(x, 1)
 tspan = (0.0f0, 10.0f0) # Original (0.0f0, 10.0f0
 tsteps = range(tspan[1], tspan[2]; length = datasize)
@@ -138,10 +137,12 @@ end
 test_multiple_shoot = loss_multiple_shoot(params)
 test_multiple_shoot[1]
 
+loss_single_shooting(params.θ)[1]
+
 losses = Float32[]
 
-callback = function (θ, l)
-    push!(losses, loss_single_shooting(θ)[1])
+callback = function (p, l)
+    push!(losses, loss_single_shooting(p.θ)[1])
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
 
@@ -159,3 +160,7 @@ preds = predict_single_shooting(res_ms.u.θ)
 
 plot(preds[1, :])
 scatter!(x)
+
+# Plotting parity
+scatter(x, preds[1,:], label = "Data", color = :purple)
+plot!(x, x, label = "Parity", color = :orange) # Add this line
