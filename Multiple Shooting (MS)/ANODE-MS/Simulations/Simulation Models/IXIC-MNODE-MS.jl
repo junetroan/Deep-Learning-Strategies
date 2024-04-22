@@ -73,6 +73,15 @@ prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArr
 
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
+##############################################################################################################################################################
+# Testing to reveal variable types and variable content
+
+datasize
+groupsize
+X_train
+prob_node
+
+##############################################################################################################################################################
 
 function group_ranges(datasize::Integer, groupsize::Integer)
     2 <= groupsize <= datasize || throw(DomainError(groupsize,
@@ -84,6 +93,29 @@ ranges = group_ranges(datasize, groupsize)
 u0 = Float32(X_train[first(1:5)])
 u0_init = [[X_train[first(rg)]; fill(mean(X_train[rg]), state - 1)] for rg in ranges] 
 u0_init = mapreduce(permutedims, vcat, u0_init)
+
+rem = remake(prob_node; p = params.θ, tspan = (tsteps[first(ranges[1])], tsteps[last(ranges[1])]),u0 = u0_init[1, :])
+sol = solve(rem, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps[ranges[1]])
+
+
+for (index, rg) in enumerate(ranges)
+    println("Index: $index, rg: $rg")
+end
+
+
+for (i, rg) in enumerate(ranges)
+    u = X_train[rg] # TODO: make it generic for observed states > 1
+    û = group_predictions[i][1, :]
+    loss += loss_function(u, û)
+
+    if i > 1
+        # Ensure continuity between last state in previous prediction
+        # and current initial condition in ode_data
+        loss += continuity_term *
+                continuity_loss(group_predictions[i - 1][:, end], group_predictions[i][:, 1])
+    end
+end
+
 
 function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
     continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
@@ -130,6 +162,9 @@ continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
 predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
 tester_pred_ss = predict_single_shooting(params.vector_field_model)
 
+plot(X_train)
+plot!(tester_pred_ss[2, :])
+
 function loss_single_shooting(p)
     pred = predict_single_shooting(p)
     l = loss_function(X_train, pred[1,:])
@@ -148,7 +183,6 @@ multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function,
     continuity_term)
 
 
-
 function loss_multiple_shoot(p)
     return multiple_shoot_mod(p, X_train, tsteps, prob_node, loss_function,
         continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
@@ -158,6 +192,7 @@ end
 test_multiple_shoot = loss_multiple_shoot(params)
 test_multiple_shoot[1]
 
+loss_single_shooting(params.θ)[1]
 #=
 losses = Float32[]
 

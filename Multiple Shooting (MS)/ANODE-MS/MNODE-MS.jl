@@ -52,6 +52,14 @@ tsteps = range(tspan[1], tspan[2]; length = datasize)
 #solve(prob_node, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = 0.25f0)
 
 ##############################################################################################################################################################
+# Testing to reveal variable types and variable content
+
+datasize
+groupsize
+x
+state
+
+##############################################################################################################################################################
 
 function group_ranges(datasize::Integer, groupsize::Integer)
     2 <= groupsize <= datasize || throw(DomainError(groupsize,
@@ -78,7 +86,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
-       solver; saveat = tsteps[rg]) 
+        solver; saveat = tsteps[rg]) 
         for (index, rg) in enumerate(ranges)]
 
     group_predictions = Array.(sols)
