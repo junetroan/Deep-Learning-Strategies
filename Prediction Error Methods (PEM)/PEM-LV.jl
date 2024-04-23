@@ -9,7 +9,7 @@ using OrdinaryDiffEq
 using OptimizationPolyalgorithms
 using DiffEqFlux
 using Plots
-plotly()
+gr()
 
 # Producing data
 function lotka!(du, u, p, t)
@@ -42,6 +42,7 @@ y = Xₙ[1,:]
 state = 2
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
+u0 = [y[1], rand(rng1, Float32, state-1)...]
 K = randn(rng2, Float32, state)
 y_zoh = ConstantInterpolation(y, tsteps)
 #Definition of the model 
@@ -72,8 +73,11 @@ function predloss(p)
 end
 
 losses = Float32[]
+Ks = []
+
 callback = function (θ, l)
     push!(losses, predloss(θ))
+    push!(Ks, θ.K[1:end])
 
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
@@ -95,8 +99,10 @@ plot(y_pred[1,:])
 scatter!(y)
 
 full_traj_loss = predloss(res_ms.u)
+full_traj = prediction(res_ms.u)
 println("Full Trajectory Loss: ",full_traj_loss)    
 
+#=
 optf_final = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm=0.01), maxiters = 1000, callback=callback, allow_f_increases = true)
@@ -109,7 +115,7 @@ total_loss = abs(sum(actual_loss))
 
 plot(full_traj2[1, :])
 scatter!(y)
-
+=#
 
 #############################################################################################
 # Testing 
@@ -117,7 +123,7 @@ p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 y_zoh = ConstantInterpolation(solution_new[1,:], 0.0:0.25:40.0)
-prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0, tspan = (0.0f0, 40.0f0))
+prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0, tspan = (0.0f0, 40.0f0))
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
 saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 updated_obsgrid = 0.0:0.25:40.0
@@ -131,7 +137,7 @@ function plot_results(t, real, pred, pred_new)
     scatter!(t3, solution_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/PEM LV Training and Testing.png")
+    savefig("Results/LV/PEM LV Training and Testing.png")
 end
 
-plot_results(t, Xₙ, full_traj2, prediction_new)
+plot_results(t, Xₙ, full_traj, prediction_new)
