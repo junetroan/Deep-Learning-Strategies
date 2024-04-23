@@ -1,20 +1,22 @@
+#Test with F1 telemetry data
 
-# GENERATING DATA TO TEST
 using DifferentialEquations
 using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
-using ComponentArrays, Lux, Zygote, StableRNGs , Plots
-using DiffEqFlux
-using Distributions
+using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 using CSV, Tables, DataFrames
-using Random
+using DataInterpolations
+using OrdinaryDiffEq
+using OptimizationPolyalgorithms
+using DiffEqFlux
+using Plots
+using Statistics
 using StatsBase
 gr()
 
-# Collecting Data
-data = CSV.read(data_path, DataFrame)
-datasize = length(X_train)
+data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
+data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
 split_ration = 0.25
@@ -22,187 +24,129 @@ train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
 # Data Cleaning and Normalization
-hare_data = data[:, 2]
-lynx_data = data[:, 3]
+t = 0.0:1.0:581
+speed = data[:,1]
 
-transformer = fit(ZScoreTransform, hare_data)
-X_train = Float32.(StatsBase.transform(transformer, train[:, 2]))
-plot(X_train)
+train_data = convert(Vector{Float32}, train[:,2])
+test_data = convert(Vector{Float32}, test[:,2])
 
-X_test = Float32.(StatsBase.transform(transformer, test[:, 2]))
-X_new = reshape(X_train, 1, :)
-unknown_X = zeros(Float32, 1, 68)
-X = vcat(X_new, unknown_X)
-
-t = Float32.(collect(1:size(data, 1)))
-t_train = Float32.(collect(1:Int(round(split_ration*size(data, 1)))))
-t_test = Float32.(collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
-tspan = (Float32(minimum(t_train)), Float32(maximum(t_train)))
-tsteps = range(tspan[1], tspan[2], length = datasize)
-
-datasize = size(X_train, 1)
-
-# Define the experimental parameter
-groupsize = 5
-predsize = 5
-state = 2
-
-fulltraj_losses = Float32[]
-
-# NUMBER OF ITERATIONS OF THE SIMULATION
-iters = 2
-
-i = 2
-# Random numbers
-rng_1 = StableRNG(i)
-rng_2 = StableRNG(i + 2)
-
-# NEURAL NETWORK
-U = Lux.Chain(Lux.Dense(state, 30, tanh),
-Lux.Dense(30, state))
-
-tsteps = 1.0f0
-p, st = Lux.setup(rng_1, U)
-params = ComponentVector{Float32}(vector_field_model = p)
-u0 = vcat(X_train[1], randn(rng_2, Float32, state - 1))
-neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
-
+transformer = fit(ZScoreTransform, train_data)
+X_train = StatsBase.transform(transformer, train_data)
+X_test = StatsBase.transform(transformer, test_data)
+t_test = convert(Vector{Float32}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
+t_train = convert(Vector{Float32}, collect(1:Int(round(split_ration*size(data, 1)))))
+tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
-##############################################################################################################################################################
-# Testing to reveal variable types and variable content
+# Interpolation of given data
+y_zoh = ConstantInterpolation(X_train, tsteps)
 
-datasize
-groupsize
-X_train
-prob_node
+i = 2
+state = 2
+u0 = [X_train[1], mean(X_train)]
 
-##############################################################################################################################################################
+rng1 = StableRNG(i+1)
+rng2 = StableRNG(i+2)
 
-function group_ranges(datasize::Integer, groupsize::Integer)
-    2 <= groupsize <= datasize || throw(DomainError(groupsize,
-    "datasize must be positive and groupsize must to be within [2, datasize]"))
-    return [i:min(datasize, i + groupsize - 1) for i in 1:(groupsize - 1):(datasize - 1)]
+U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
+p, st = Lux.setup(rng1, U)
+
+K = rand(rng2, Float32, 2)
+
+function predictor!(du,u,p,t)
+    û = U(u, p.vector_field_model, st)[1]
+    yt = y_zoh(t)
+    e = yt .- û[1]
+    du[1:end] =  û[1:end] .+ abs.(p.K) .* e
+end
+            
+params = ComponentVector{Float32}(vector_field_model = p, K = K)
+prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
+soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+
+function prediction(p)
+    _prob = remake(prob_nn, u0 = u0, p = p)
+    sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
+    Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps , sensealg = sensealg))
 end
 
-ranges = group_ranges(datasize, groupsize)
-u0 = Float32(X_train[first(1:5)])
-u0_init = [[X_train[first(rg)]; fill(mean(X_train[rg]), state - 1)] for rg in ranges] 
-u0_init = mapreduce(permutedims, vcat, u0_init)
-
-function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
-    continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
-    continuity_term::Real = 100, kwargs...) where {F, C}
-
-    datasize = size(ode_data, 1)
-
-    if group_size < 2 || group_size > datasize
-        throw(DomainError(group_size, "group_size can't be < 2 or > number of data points"))
-    end
-
-    ranges = group_ranges(datasize, group_size)
-
-    sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
-        u0 = p.u0_init[index, :]),
-        solver, saveat = tsteps[rg],sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true))) 
-        for (index, rg) in enumerate(ranges)]
-
-    group_predictions = Array.(sols)
-
-
-    loss = 0
-
-    for (i, rg) in enumerate(ranges)
-        u = X_train[rg] # TODO: make it generic for observed states > 1
-        û = group_predictions[i][1, :]
-        loss += loss_function(u, û)
-
-        if i > 1
-            # Ensure continuity between last state in previous prediction
-            # and current initial condition in ode_data
-            loss += continuity_term *
-                    continuity_loss(group_predictions[i - 1][:, end], group_predictions[i][:, 1])
-        end
-    end
-
-    return loss, group_predictions
+function predloss(p)
+    yh = prediction(p)
+    e2 = mean(abs2, X_train .- yh[1,:])
+    return e2
 end
-
-#Testing
-# Calculate multiple shooting loss
-loss_function(data, pred) = sum(abs2, data - pred)
-continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
-predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
-tester_pred_ss = predict_single_shooting(params.vector_field_model)
-
-plot(X_train)
-plot!(tester_pred_ss[2, :])
-
-function loss_single_shooting(p)
-    pred = predict_single_shooting(p)
-    l = loss_function(X_train, pred[1,:])
-    return l, pred
-end
-
-ls, ps = loss_single_shooting(params.vector_field_model)
-
-continuity_term = 10.0
-params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
-ls, ps = multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize; continuity_term)
-
-# Modified multiple_shoot method 
-multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function,
-    continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
-    continuity_term)
-
-
-function loss_multiple_shoot(p)
-    return multiple_shoot_mod(p, X_train, tsteps, prob_node, loss_function,
-        continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
-        continuity_term)[1]
-end
-
-test_multiple_shoot = loss_multiple_shoot(params)
-
-loss_single_shooting(params.θ)[1]
-
+                
+predloss(params)
+                
 losses = Float32[]
+K = []
 
-callback = function (θ, l)
-    push!(losses, loss_multiple_shoot(θ))
+callback = function (p, l)
+    push!(losses, predloss(p))
+    push!(K, p.K[1:end])
+                
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
-
     end
     return false
 end
 
 adtype = Optimization.AutoZygote()
-optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
+optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) 
+res_ms = Optimization.solve(optprob, ADAM(), maxiters = 10000, verbose = false, callback=callback)
 
 
-losses_df = DataFrame(loss = losses)
-CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+losses_df = DataFrame(losses = losses)
+#CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+            
 
-loss_ms, _ = loss_single_shooting(res_ms.u.θ)
-preds = predict_single_shooting(res_ms.u.θ)
+full_traj = prediction(res_ms.u)
 
-plot(preds[1, :])
-scatter!(X_train)
-
-gr()
-function plot_results(real, pred, t)
-    plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
+function plot_results(t, real, pred)
+    plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(t, real, label = "Training Data")
-    plot!(legend=:topleft)
-    savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
+    plot!(legend=:topright)
+    #savefig("sim-F1-PEM/Plots/Simulation $i.png")
 end
 
-plot_results(X_train, preds, t_train)
+plot_results(tsteps, X_train, full_traj)
 
 
+#################################################################################################################################################
+# Testing
 
+X_train
+X_test
+all_data = vcat(X_train, X_test)
+X_test 
+t_test
+tspan_test = (t_test[1], t_test[end])
+tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test))
 
+function simulator!(du,u,p,t)
+    û = U(u, p.vector_field_model, st)[1]
+    du[1:end] =  û[1:end]
+end
+
+u0 = [X_test[1], mean(X_test)]
+params_test = ComponentVector{Float32}(vector_field_model = p)
+prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
+prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
+soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+t1 = t_train |> collect
+t3 = t_test |> collect
+
+gr()
+function plot_results(t, real, pred, pred_new)
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
+    plot!(t3, pred_new[1,41:123], label = "Test Prediction")
+    scatter!(t1, real[1,:], label = "Training Data")
+    scatter!(t3, solution_new[1,41:123], label = "Test Data")
+    vline!([t3[1]], label = "Training/Test Split")
+    plot!(legend=:topright) 
+    #savefig("Results/HL/PEM HL Training and Testing.png")
+end
+
+plot_results(t, Xₙ, full_traj, prediction_new)
