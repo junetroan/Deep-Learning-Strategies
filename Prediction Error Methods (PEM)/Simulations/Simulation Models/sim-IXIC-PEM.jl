@@ -44,7 +44,7 @@ tsteps = range(tspan[1], tspan[2], length = length(X_train))
 datasize = size(X_train, 1)
 
 # Interpolation of given data
-y_zoh = ConstantInterpolation(y, tsteps)
+y_zoh = LinearInterpolation(y, tsteps)
 
 # Definition of neural network
 i = 2
@@ -69,12 +69,12 @@ end
 
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = tsteps )
-soln_nn = solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 )
-        
-t = soln_nn.t
-        
-soln_nn = Array(soln_nn)
+soln_nn = solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps )
 
+#=
+t = soln_nn.t  
+soln_nn = Array(soln_nn)
+=#
         
 function prediction(p)     
     _prob = remake(prob_nn, u0 = u0, p = p)     
@@ -92,7 +92,7 @@ losses = Float32[]
 Ks = []
 
 callback = function (θ, l)
-    push!(losses, predloss(p))
+    push!(losses, predloss(θ))
     push!(Ks, θ.K[1:end])
 
     if length(losses) % 50 == 0
@@ -123,6 +123,7 @@ function plot_results(t, real, pred)
     savefig("Prediction Error Methods (PEM)/Simulations/Results/sim-IXIC/Plots/Simulation.png")
 end
 
-plot_results(t, y, full_traj)        
+plot_results(t_train, y, full_traj)        
 
         
+ 

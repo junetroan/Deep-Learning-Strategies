@@ -89,8 +89,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
         solver, saveat = tsteps[rg], sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true)))
         for (index, rg) in enumerate(ranges)]
 
-    25
-
+    group_predictions = Array.(sols)
 
     loss = 0
 
