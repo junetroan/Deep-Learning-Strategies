@@ -19,7 +19,7 @@ data_path = "test-f1.csv"
 data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
-split_ration = 0.4
+split_ration = 0.25
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 

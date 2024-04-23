@@ -8,11 +8,11 @@ using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 gr()
 
-data_path = "test-f1.csv"
+data_path = "Multiple Shooting (MS)/ANODE-MS/Data/test-f1.csv"
 data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
-split_ration = 0.7
+split_ration = 0.25
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
@@ -141,7 +141,7 @@ iters = 1
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        #CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
@@ -151,7 +151,7 @@ iters = 1
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
             plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("sim-F1-ANODE-MS/Plots/Simulation $i.png")
+            #savefig("sim-F1-ANODE-MS/Plots/Simulation $i.png")
         end
 
         plot_results(t_train, X_train, full_traj)
