@@ -86,7 +86,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
-        solver; saveat = tsteps[rg]) 
+        solver, saveat = tsteps[rg], sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true)))
         for (index, rg) in enumerate(ranges)]
 
     group_predictions = Array.(sols)
@@ -139,18 +139,18 @@ multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
 function loss_multiple_shoot(p)
     return multiple_shoot_mod(p, x, tsteps, prob_node, loss_function,
         continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
-        continuity_term)
+        continuity_term)[1]
 end
 
 test_multiple_shoot = loss_multiple_shoot(params)
-test_multiple_shoot[1]
+#test_multiple_shoot[1]
 
 loss_single_shooting(params.θ)[1]
 
 losses = Float32[]
 
 callback = function (p, l)
-    push!(losses, loss_multiple_shoot[1])
+    push!(losses, loss_multiple_shoot(p))
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
 
@@ -161,7 +161,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000) #callback  = callback,
+@time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback)
 
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
 preds = predict_single_shooting(res_ms.u.θ)

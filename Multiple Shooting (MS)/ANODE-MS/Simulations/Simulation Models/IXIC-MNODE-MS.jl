@@ -21,22 +21,19 @@ data = CSV.read(data_path, DataFrame)
 # Data Cleaning and Normalization
 date = data[:, 1]
 open_price = data[:, 2]
-high_price = data[:, 3]
-low_price = data[:, 4]
-close_price = data[:, 5]
-adj_close = data[:, 6]
-volume = data[:, 7]
 
-split_ratio = 0.3
+split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
 t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
-t_test = Float32.(collect(Int(round(split_ratio*size(low_price, 1))):size(open_price, 1)))
+t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
 
 transformer = fit(ZScoreTransform, open_price)
 X_train = vec(Float32.(StatsBase.transform(transformer, train)))
 X_test = vec(Float32.(StatsBase.transform(transformer, test)))
+
+plot(X_train)
 
 t = collect(1:size(data, 1))
 t = Float32.(t)
@@ -94,29 +91,6 @@ u0 = Float32(X_train[first(1:5)])
 u0_init = [[X_train[first(rg)]; fill(mean(X_train[rg]), state - 1)] for rg in ranges] 
 u0_init = mapreduce(permutedims, vcat, u0_init)
 
-rem = remake(prob_node; p = params.θ, tspan = (tsteps[first(ranges[1])], tsteps[last(ranges[1])]),u0 = u0_init[1, :])
-sol = solve(rem, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps[ranges[1]])
-
-
-for (index, rg) in enumerate(ranges)
-    println("Index: $index, rg: $rg")
-end
-
-
-for (i, rg) in enumerate(ranges)
-    u = X_train[rg] # TODO: make it generic for observed states > 1
-    û = group_predictions[i][1, :]
-    loss += loss_function(u, û)
-
-    if i > 1
-        # Ensure continuity between last state in previous prediction
-        # and current initial condition in ode_data
-        loss += continuity_term *
-                continuity_loss(group_predictions[i - 1][:, end], group_predictions[i][:, 1])
-    end
-end
-
-
 function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
     continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
     continuity_term::Real = 100, kwargs...) where {F, C}
@@ -131,7 +105,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
-        solver; saveat = tsteps[rg]) 
+        solver, saveat = tsteps[rg],sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true))) 
         for (index, rg) in enumerate(ranges)]
 
     group_predictions = Array.(sols)
@@ -186,49 +160,48 @@ multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function,
 function loss_multiple_shoot(p)
     return multiple_shoot_mod(p, X_train, tsteps, prob_node, loss_function,
         continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
-        continuity_term)
+        continuity_term)[1]
 end
 
 test_multiple_shoot = loss_multiple_shoot(params)
-test_multiple_shoot[1]
 
 loss_single_shooting(params.θ)[1]
-#=
+
 losses = Float32[]
 
 callback = function (θ, l)
-    push!(losses, loss_single_shooting(θ)[1])
+    push!(losses, loss_multiple_shoot(θ))
     if length(losses) % 50 == 0
         println("Current loss after $(length(losses)) iterations: $(losses[end])")
 
     end
     return false
 end
-=#
 
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000) #callback  = callback,
+@time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) 
 
 
 losses_df = DataFrame(loss = losses)
-#CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
 preds = predict_single_shooting(res_ms.u.θ)
 
-#plot(preds[1, :])
-#scatter!(x)
+plot(preds[1, :])
+scatter!(X_train)
 
-function plot_results(real, pred)
+gr()
+function plot_results(real, pred, t)
     plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
-    scatter!(t, real[1,:], label = "Training Data")
+    scatter!(t, real, label = "Training Data")
     plot!(legend=:topright)
-    #savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
+    savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
 end
 
-plot_results(X_train, preds)
+plot_results(X_train, preds, t_train)
 
 
 
