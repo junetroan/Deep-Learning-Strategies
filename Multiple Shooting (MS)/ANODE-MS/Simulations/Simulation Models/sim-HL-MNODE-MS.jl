@@ -102,7 +102,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
-        solver, saveat = tsteps[rg],sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true))) 
+        solver, saveat = tsteps[rg], sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true))) 
         for (index, rg) in enumerate(ranges)]
 
     group_predictions = Array.(sols)
@@ -200,5 +200,30 @@ end
 plot_results(X_train, preds, t_train)
 
 
+#####################################################################################################################################################################
+# Testing 
 
+X_test
+t_test
+tspan_test = (Float32(minimum(t_test)), Float32(maximum(t_test)))
+tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test))
 
+u0 = vcat(res_ms.u.u0_init[1,:])
+prob_nn_updated = remake(prob_node, u0 = u0, tspan = tspan_test, p = res_ms.u.θ)
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+t1  = t_train |> collect
+t3 = t_test |> collect
+
+gr()
+
+function plot_results(real_train, real_test, train_pred, test_pred)
+    plot(t1, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of MNODE-MS Model", xlabel = "Time", ylabel = "Population")
+    plot!(t3, test_pred[1,:], label = "Test Prediction")
+    scatter!(t1, real_train, label = "Training Data")
+    scatter!(t3, real_test, label = "Test Data")
+    vline!([t3[1]], label = "Training/Test Split")
+    plot!(legend=:topright)
+    savefig("Results/HL/MNODE-MS HL Training and Testing.png")
+end
+
+plot_results(X_train, X_test, preds, prediction_new)
