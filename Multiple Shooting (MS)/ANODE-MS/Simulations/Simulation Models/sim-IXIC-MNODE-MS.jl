@@ -196,8 +196,8 @@ scatter!(X_train)
 gr()
 function plot_results(real, pred, t)
     plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
-    scatter!(t, real, label = "Training Data")
-    plot!(legend=:topright)
+    plot!(t, real, label = "Training Data")
+    plot!(legend=:topleft)
     savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
 end
 
