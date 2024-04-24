@@ -16,8 +16,8 @@ gr()
 data_path = "/Users/junetroan/Desktop/Master Code/Deep-Learning-Strategies/Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - LEC Spain 2023 Qualifying.csv"
 all_data = CSV.read(data_path, DataFrame, header = true)
 data = all_data[:, 2]
-#Train/test Splits
 
+#Train/test Splits
 split_ration = 0.25
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
@@ -157,7 +157,6 @@ multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
     continuity_term)
 
-
 function loss_multiple_shoot(p)
     return multiple_shoot_mod(p, X_train, tsteps, prob_node, loss_function,
         continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
@@ -203,20 +202,20 @@ function plot_results(real, pred, t)
 end
 
 plot_results(X_train, preds, t_train)
-
+gr()
 test_tspan = (t_test[1], t_test[end])
 u0 = vcat(res_ms.u.u0_init[1,:])
 prob_nn_updated = remake(prob_node, p = res_ms.u.θ, u0 = u0, tspan = test_tspan)
-prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of MNODE-MS Model", xlabel = "Time", ylabel = "Speed")
-    plot!(t3, test_pred[1,:], label = "Test Prediction")
+    plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/F1/MNODE-MS F1 Training and Testing.png")
+    savefig("Results/F1/MNODE-MS F1 Training and Testing.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, preds, prediction_new)
