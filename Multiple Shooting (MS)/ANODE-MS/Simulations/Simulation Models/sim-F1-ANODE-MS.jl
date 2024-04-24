@@ -159,13 +159,13 @@ t1 = t_train |> collect
 t3 = t_test|> collect
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Population")
-    plot!(t3, test_pred[1,:], label = "Test Prediction")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/ANODE-MS LV Training and Testing.png")
+    #savefig("Results/F1/ANODE-MS F1 Training and Testing.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)
