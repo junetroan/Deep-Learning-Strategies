@@ -8,8 +8,6 @@ using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 gr()
 
-
-
 # Collecting Data
 data_path = "Multiple Shooting (MS)/ANODE-MS/Data/^IXIC.csv"
 data = CSV.read(data_path, DataFrame)
@@ -22,7 +20,6 @@ open_price = data[:, 2]
 split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
-
 
 t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
 t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
@@ -138,7 +135,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 losses_df = DataFrame(loss = losses)
 CSV.write("Results/IXIC/Loss Data/Losses $i.csv", losses_df, writeheader = false)
@@ -156,4 +153,21 @@ end
 
 plot_results(t_train, t, X_train, full_traj)
 
+test_tspan = (t_test[1], t_test[end])
+predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
+u0_all = vcat(u0_vec[1], predicted_u0_nn)
+prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
+saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
+function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Opening Price")
+    plot!(test_t, test_pred[1,:], label = "Test Prediction")
+    scatter!(train_t, train_x, label = "Training Data")
+    scatter!(test_t, test_x, label = "Test Data")
+    vline!([test_t[1]], label = "Training/Test Split")
+    plot!(legend=:topright)
+    #savefig("Results/F1/ANODE-MS IXIC Training and Testing.png")
+end
+
+plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)
