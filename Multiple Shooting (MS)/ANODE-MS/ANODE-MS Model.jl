@@ -25,6 +25,23 @@ println("solving ODE")
 
 @time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
+#=
+# Writing to csv-file for making figure of LV data
+using CSV, DataFrames
+
+# Read the data from lynx_hare_data.csv
+data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
+data = CSV.read(data_path, DataFrame, header=true)
+
+# Add new columns to the data with the values from solution
+data.Predator = solution[1, :]
+data.Prey = solution[2, :]
+
+# Save the updated data as LV-HL-data.csv
+CSV.write("Multiple Shooting (MS)/ANODE-MS/Data/LV-HL-data.csv", data, writeheader=true)
+=#
+
+
 # Add noise in terms of the mean
 X = Array(solution)
 t = solution.t
