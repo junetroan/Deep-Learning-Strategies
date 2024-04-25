@@ -62,7 +62,7 @@ end
     
 params = ComponentVector{Float32}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
-soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0))
 
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
