@@ -167,7 +167,7 @@ iters = 2
 
         function plot_results(real, pred)
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
-            scatter!(t, real[1,:], label = "Training Data")
+            scatter!(t, real, label = "Training Data")
             plot!(legend=:topright)
             savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
         end
