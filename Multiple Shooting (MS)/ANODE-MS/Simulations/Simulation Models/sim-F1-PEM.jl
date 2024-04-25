@@ -94,13 +94,12 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 3000, verbose = false, callback=callback) #5000 iterations doesn't work???? stiffness issues. Stopped at 3300, therefore, sat to 3000
 
 
 losses_df = DataFrame(losses = losses)
 CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
     
-
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
@@ -129,13 +128,13 @@ soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f
 
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/F1/ANODE-MS F1 Training and Testing.png")
+    savefig("Results/F1/PEM F1 Training and Testing.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
