@@ -137,16 +137,13 @@ iters = 2
         function loss_multiple_shoot(p)
             return multiple_shoot_mod(p, x, tsteps, prob_node, loss_function,
                 continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
-                continuity_term)
+                continuity_term)[1]
         end
-
-        test_multiple_shoot = loss_multiple_shoot(params)
-        test_multiple_shoot[1]
-
+   
         losses = Float32[]
 
         callback = function (θ, l)
-            push!(losses, loss_single_shooting(θ)[1])
+            push!(losses, loss_multiple_shoot(θ))
             if length(losses) % 50 == 0
                 println("Current loss after $(length(losses)) iterations: $(losses[end])")
 
@@ -157,7 +154,7 @@ iters = 2
         adtype = Optimization.AutoZygote()
         optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
         optprob = Optimization.OptimizationProblem(optf, params)
-        @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000) #callback  = callback,
+        @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) #callback  = callback,
 
         losses_df = DataFrame(loss = losses)
         CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
