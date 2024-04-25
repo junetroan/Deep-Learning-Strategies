@@ -183,7 +183,6 @@ optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) 
 
-
 losses_df = DataFrame(loss = losses)
 CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
@@ -193,7 +192,6 @@ preds = predict_single_shooting(res_ms.u.θ)
 plot(preds[1, :])
 scatter!(X_train)
 
-gr()
 function plot_results(real, pred, t)
     plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
     plot!(t, real, label = "Training Data")
@@ -203,6 +201,20 @@ end
 
 plot_results(X_train, preds, t_train)
 
+test_tspan = (t_test[1], t_test[end])
+u0 = vcat(res_ms.u.u0_init[1,:])
+prob_nn_updated = remake(prob_node, p = res_ms.u.θ, u0 = u0, tspan = test_tspan)
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
+function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of MNODE-MS Model", xlabel = "Time", ylabel = "Opening Price")
+    plot!(test_t, test_pred[1,:], label = "Test Prediction")
+    scatter!(train_t, train_x, label = "Training Data")
+    scatter!(test_t, test_x, label = "Test Data")
+    vline!([test_t[1]], label = "Training/Test Split")
+    plot!(legend=:topright)
+    savefig("Results/IXIC/MNODE-MS IXIC Training and Testing.png")
+end
 
+plot_results(t_train, t_test, X_train, X_test, preds, prediction_new)
 

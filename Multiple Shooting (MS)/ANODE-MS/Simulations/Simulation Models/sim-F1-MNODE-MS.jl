@@ -202,7 +202,7 @@ function plot_results(real, pred, t)
 end
 
 plot_results(X_train, preds, t_train)
-gr()
+
 test_tspan = (t_test[1], t_test[end])
 u0 = vcat(res_ms.u.u0_init[1,:])
 prob_nn_updated = remake(prob_node, p = res_ms.u.θ, u0 = u0, tspan = test_tspan)

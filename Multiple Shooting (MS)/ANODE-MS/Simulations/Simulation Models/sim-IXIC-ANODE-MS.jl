@@ -167,7 +167,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/F1/ANODE-MS IXIC Training and Testing.png")
+    #savefig("Results/IXIC/ANODE-MS IXIC Training and Testing.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)
