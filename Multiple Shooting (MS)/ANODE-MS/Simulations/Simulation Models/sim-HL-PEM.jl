@@ -94,7 +94,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 500, verbose = false, callback=callback) #Doesn't work at 5000 - maxiters/stiffness problems reported. Set to 500, which works.
 
 
 losses_df = DataFrame(losses = losses)
@@ -138,15 +138,15 @@ soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, r
 t1 = t_train |> collect
 t3 = t_test |> collect
 
-gr()
-function plot_results(t, real, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
-    plot!(t3, pred_new[1,41:123], label = "Test Prediction")
-    scatter!(t1, real[1,:], label = "Training Data")
-    scatter!(t3, solution_new[1,41:123], label = "Test Data")
-    vline!([t3[1]], label = "Training/Test Split")
-    plot!(legend=:topright) 
-    #savefig("Results/HL/PEM HL Training and Testing.png")
+
+function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
+    plot!(test_t, test_pred[1,:], label = "Test Prediction")
+    scatter!(train_t, train_x, label = "Training Data")
+    scatter!(test_t, test_x, label = "Test Data")
+    vline!([test_t[1]], label = "Training/Test Split")
+    plot!(legend=:topright)
+    savefig("Results/HL/PEM HL Training and Testing.png")
 end
 
-plot_results(t, Xₙ, full_traj, prediction_new)
+plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
