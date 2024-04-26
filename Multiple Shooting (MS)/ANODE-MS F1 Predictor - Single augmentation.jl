@@ -293,7 +293,7 @@ function predict_final(θ)
     X̂
 end
 
-final_preds = predict_final(params)
+final_preds = predict_final(params) #INFINITY?????
 
 function final_loss(θ)
     X̂ = predict_final(θ)
@@ -316,7 +316,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000) # RUNS ONLY FROM INFINITY....
 
 #WORKING UNTIL HERE 💕🤓🥺
 
