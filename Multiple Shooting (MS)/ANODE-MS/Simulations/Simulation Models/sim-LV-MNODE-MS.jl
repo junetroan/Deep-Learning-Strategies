@@ -35,6 +35,7 @@ state = 2
 groupsize = 5
 predsize = 5
 tsteps = 0.25f0
+t_steps = 0.0f0:0.25f0:10.0f0
 
 
 iters = 2
@@ -84,7 +85,7 @@ iters = 2
 
             ranges = group_ranges(datasize, group_size)
 
-            sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
+            sols = [solve(remake(prob_node; p = p.θ, tspan = (t_steps[first(rg)], t_steps[last(rg)]),
             u0 = p.u0_init[index, :]),
             solver; saveat = tsteps[rg]) 
             for (index, rg) in enumerate(ranges)]
@@ -157,7 +158,7 @@ iters = 2
         @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) #callback  = callback,
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
         loss_ms, _ = loss_single_shooting(res_ms.u.θ)
         preds = predict_single_shooting(res_ms.u.θ)
@@ -169,7 +170,7 @@ iters = 2
             plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
             scatter!(t, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
+            savefig("Plots/Simulation $i.png")
         end
 
         plot_results(x, preds)

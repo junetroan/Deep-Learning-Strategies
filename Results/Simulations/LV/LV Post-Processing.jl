@@ -22,11 +22,11 @@ for i in 1:500
     end
 end
 
-if isempty(missing_files)
+if isempty(missing_files_ANODE)
     println("No files are missing.")
 else
     println("The following files are missing:")
-    println(missing_files)
+    println(missing_files_ANODE)
 end
 
 df_ANODE = DataFrame()
@@ -118,19 +118,20 @@ function averager(df)
     row_means = mean.(eachrow(df))
     row_stds = std.(eachrow(df))    
 
-    #p = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution of ANODE-MS Model", xlabel="Iteration", ylabel="Average Loss")
-    p1 = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
+    p = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution of ANODE-MS Model", xlabel="Iteration", ylabel="Average Loss")
+    #p1 = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
     #savefig(p, "Results/Simulations/LV/Simulations ANODE-MS Loss Evolution.png")
     #savefig(p1, "Results/Simulations/LV/Simulations ANODE-MS Loss Evolution (Log Scale).png")
+    #display(p1)
     #savefig(p, "Results/Simulations/LV/Simulations MNODE-MS Loss Evolution.png")
-    savefig(p1, "Results/Simulations/LV/Simulation of MNODE-MS Loss Evolution (Log Scale).png")
-    #savefig(p, "Results/Simulations/LV/Simulation of NPEM Loss Evolution")
+    #savefig(p1, "Results/Simulations/LV/Simulation of MNODE-MS Loss Evolution (Log Scale).png")
+    savefig(p, "Results/Simulations/LV/Simulation of NPEM Loss Evolution")
     #savefig(p1, "Results/Simulations/LV/Simulation of NPEM Loss Evolution (Log Scale)")
 end
 
-#averager(df_ANODE)
-averager(df_NODE)
-#averager(df_PEM)
+averager(df_ANODE)
+#averager(df_NODE)
+averager(df_PEM)
 
 function compare(df1, df2)
 
