@@ -17,7 +17,7 @@ speed = convert(Vector{Float32}, data[:,2])
 throttle = convert(Vector{Float32}, data[:,3])
 brake = convert(Vector{Float32}, data[:,4])
 
-split_ration = 0.7
+split_ration = 0.25
 
 distance_train = distance[1:Int(round(split_ration*size(data, 1)))]
 distance_test = distance[Int(round(split_ration*size(data, 1))):end]
@@ -58,8 +58,8 @@ s_train_interpolation = LinearInterpolation(s_train, t_train)
 th_train_interpolation = LinearInterpolation(th_train, t_train)
 b_train_interpolation = LinearInterpolation(b_train, t_train)
 
-y_train = [s_train th_train b_train]'
-y_test = [s_test th_test b_test]'
+y_train = [th_train b_train s_train]'
+y_test = [th_test b_test s_test]'
 
 # Define the experimental parameter
 unknown_states = 1
@@ -74,19 +74,42 @@ rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
 # Define the neural network
-U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
+U = Lux.Chain(Lux.Dense(unknown_states+known_states, 30, tanh), Lux.Dense(30, 2))
 
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 
 # Simple NN to predict initial points for use in multiple-shooting training
-U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  1))
+U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  2))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
+th = LinearInterpolation(th_train, t_train)
+br = ConstantInterpolation(b_train, t_train)
+
+#=
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t)
     û = U(u, p.vector_field_model, st)[1] # Network prediction
+    th = th(t)
+    br = br(t)
     du[1:end] = û[1:end]
+end
+=#
+function ude_dynamics!(du, u, p, t)
+    # Extract input variables from `u`
+    t = u[2]
+    b = u[3]
+    s = u[1]
+    h = u[4]
+
+    inputs = [s;t;b;h]
+
+    # Evaluate neural network to get derivatives
+    derivatives = U(inputs, p.vector_field_model, st)[1]
+
+    # Assign derivatives to the output array `du`
+    du[1] = derivatives[1]
+    du[2] = derivatives[2]
 end
 
 # Closure with the known parameter
@@ -166,17 +189,16 @@ targs =
 
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
-    firsts =  hcat([parent[i][1, :] for i in 1:101]...)
-    seconds = hcat([parent[i][2, :] for i in 1:101]...)
-    thirds = hcat([parent[i][3, :] for i in 1:101]...)
-    targets = reshape(vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...), groupsize, 303)
+    firsts =  hcat([parent[i][1, :] for i in 1:36]...) # Throttle
+    seconds = hcat([parent[i][2, :] for i in 1:36]...) # Brake
+    thirds = hcat([parent[i][3, :] for i in 1:36]...) # Speed
+    targets = reshape(vcat([parent[i][j, :] for i in 1:36 for j in 1:3]...), groupsize, 108)
     parent = cat(parent..., dims=3)
-    u0 = firsts[1,:]
+    u0 = hcat(firsts[1,:], thirds[1,:])
     return parent, targets, firsts, seconds, thirds, u0
 end
 
 pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
-
 #=
 function tester()
     u0_nn_first = []
@@ -202,32 +224,25 @@ u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
 
 function tpredictor(θ)
     function prob_func(prob, i, repeat)
-        u0_nn_first = [U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(first_series, 2)]
-        u0_nn_second = [U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(second_series, 2)]
         u0_nn_third = [U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(third_series, 2)]
-        u0_all = vcat(u0_vec[i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
+        u0_all = vcat(u0_vec[i,:], u0_nn_third[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 101, sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg))
 end
 
+#=
 function predictor(θ)
     function prob_func(prob, i, repeat)
         u0_nn_first = []
-        u0_nn_second = []
-        u0_nn_third = []
+
         for j in 1:size(first_series, 2)
             u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
             push!(u0_nn_first, u0_nn)
             
-            u0_nn = U0_nn(second_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_second, u0_nn)
-            
-            u0_nn = U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_third, u0_nn)
         end
 
         u0_all = vcat(u0_vec[i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
@@ -236,9 +251,9 @@ function predictor(θ)
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 101, sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg))
 end
-
+=#
 #=
 pred = predictor(params)
 all_preds = [pred[1,:,:] pred[2,:,:] pred[3,:,:]]'
@@ -268,12 +283,9 @@ u0_1 = vcat(u0_vec[1], pred_u0_nn)
 =#
 
 function predict_final(θ)
-    pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn_second = U0_nn(second_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
-    u0_all = vcat(u0_vec[1], pred_u0_nn)
-    prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
+    u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1] 
+    u0_all = vcat(u0_vec[1,:], u0_nn_third)
+    prob_nn_updated = remake(prob_nn, p = θ, u0 = u0_all)
 
    # no longer updates u0 nn
     X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
