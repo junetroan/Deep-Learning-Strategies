@@ -67,7 +67,8 @@ soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
     sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
-    Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps , sensealg = sensealg))
+    #Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps , sensealg = sensealg))
+    Array(solve(_prob, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = tsteps, sensealg = sensealg))
 end
 
 function predloss(p)
@@ -94,7 +95,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 500, verbose = false, callback=callback) #Doesn't work at 5000 - maxiters/stiffness problems reported. Set to 500, which works.
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) #Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 1000 iterations
 
 
 losses_df = DataFrame(losses = losses)

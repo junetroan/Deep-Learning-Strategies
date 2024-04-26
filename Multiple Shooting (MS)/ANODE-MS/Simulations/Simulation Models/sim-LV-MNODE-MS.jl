@@ -101,7 +101,7 @@ iters = 2
                 loss += loss_function(u, û)
 
                 if i > 1
-                    # Ensure continuity between last state in previous prediction
+                    # Ensure continuity between last state in previous prediHLtion
                     # and current initial condition in ode_data
                     loss += continuity_term *
                             continuity_loss(group_predictions[i - 1][:, end], group_predictions[i][:, 1])
