@@ -69,6 +69,7 @@ function prediction(p)
     sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
     #Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps , sensealg = sensealg))
     Array(solve(_prob, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = tsteps, sensealg = sensealg))
+    
 end
 
 function predloss(p)
@@ -95,8 +96,9 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) #Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 1000 iterations
-
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) 
+# Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 5000 iterations
+# The abstol and reltol is also changed from 10e-8 to 10e-6
 
 losses_df = DataFrame(losses = losses)
 #CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
