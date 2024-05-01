@@ -141,3 +141,6 @@ function plot_results(t, real, pred, pred_new)
 end
 
 plot_results(t, Xₙ, full_traj, prediction_new)
+
+actual_loss = solution_new[1,:] - prediction_new[1,:]
+total_loss = abs(sum(actual_loss))

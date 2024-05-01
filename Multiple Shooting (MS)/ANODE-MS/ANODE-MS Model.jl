@@ -175,8 +175,14 @@ optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 final_traj = predict_final(res_ms.u)[1,:]
-plot(final_traj)
-scatter!(Xₙ[1,:])
+
+function plot_first()
+    plot(final_traj, label = "Prediction", title="Training Predictions of ANODE-MS Model with ADAM", xlabel = "Time", ylabel = "Population")
+    scatter!(Xₙ[1,:], label = "Training Data")   
+    savefig("Results/LV/ANODE-MS LV Training with ADAM.png")
+end
+
+plot_first()
 
 full_traj_loss = final_loss(res_ms.u)
 println("Full Trajectory Loss: ",full_traj_loss)
@@ -191,6 +197,16 @@ full_traj2 = predict_final(res_final.u)
 actual_loss = Xₙ[1,:] - full_traj2[1,:]
 total_loss = abs(sum(actual_loss))
 
+final_full_trajectory_loss = final_loss(res_final.u)
+
+function plot_second()
+    plot(full_traj2[1,:], label = "Prediction", title="Training Predictions of ANODE-MS Model with BFGS", xlabel = "Time", ylabel = "Population")
+    scatter!(Xₙ[1,:], label = "Training Data")   
+    savefig("Results/LV/ANODE-MS LV Training with ADAM and BFGS.png")
+end
+
+plot_second()
+
 plot(full_traj2[1, :])
 scatter!(Xₙ[1, :])
 
@@ -201,9 +217,9 @@ prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
 
-predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
+predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
-prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
+prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
 saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 updated_obsgrid = 0.0:0.25:40.0

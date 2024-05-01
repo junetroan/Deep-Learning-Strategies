@@ -162,6 +162,7 @@ optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback)
 
+
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
 preds = predict_single_shooting(res_ms.u.θ)
 
@@ -202,3 +203,6 @@ function plot_results(t, real, pred, pred_new)
 end
 
 plot_results(t1, x, preds, prediction_new)
+
+actual_loss = solution_new[1,:] - prediction_new[1,:]
+total_loss = abs(sum(actual_loss))

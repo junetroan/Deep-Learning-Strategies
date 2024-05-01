@@ -6,14 +6,10 @@ using DifferentialEquations
 using SciMLSensitivity 
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using Distributions
-using DiffEqFlux: NeuralODE, AdamW, swish
-
-# Standard Libraries
+using DiffEqFlux: NeuralODE, swish
 using LinearAlgebra, Statistics
-
-# External Libraries
 using ComponentArrays, Lux, Zygote, Plots, StableRNGs
-plotly()
+gr()
 
 # Set a random seed for reproducible behaviour
 rng = StableRNG(1111)
@@ -30,13 +26,12 @@ u0 = 5.0f0 * rand(rng, Float32, 2)
 p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob = ODEProblem(lotka!, u0, tspan, p_)
 println("solving ODE")
-@time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25)
-num_elements = 5
+
+@time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
 # Add noise in terms of the mean
 X = Array(solution)
 t = solution.t
-
 x̄ = mean(X, dims = 2)
 noise_magnitude = 10e-3
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
@@ -44,34 +39,43 @@ Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
 plot(solution, alpha = 0.75, color = :black, label = ["True Data" nothing])
 scatter!(t, transpose(Xₙ), color = :red, label = ["Noisy Data" nothing])
 
+num_elements = 5
+state = 2
+
 #------ Building neural ODE
 # Simple NN to predict lotka-volterra dynamics
-U = Lux.Chain(Lux.Dense(2, 30, tanh),
-              Lux.Dense(30, 2))
+U = Lux.Chain(Lux.Dense(state, 30, tanh),
+              Lux.Dense(30, state))
 # Get the initial parameters and state variables of the model
-p_lv, st_lv = Lux.setup(rng, U)
+p, st = Lux.setup(rng, U)
+
+
+########################################################################################################################################
+
+# Simple NN to predict initial points
+
+########################################################################################################################################
 
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t, p_true)
-    û = U(u, p.vector_field_model, st_lv)[1] # Network prediction
-    du[1] = û[1]
-    du[2] = û[2]
+    û = U(u, p.vector_field_model, st)[1] # Network prediction
+    du[1:end] = û[1:end]
 end
 
 # Closure with the known parameter
-nn_dynamics!(du, u, p_lv, t) = ude_dynamics!(du, u, p_lv, t, p_)
+nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t, p_)
 
 # Construct ODE Problem
-augmented_u0 = vcat(u0[1], randn(rng, Float32, 1))
-parameters = ComponentVector(vector_field_model = p_lv)
-prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, parameters, saveat = 0.25)
+augmented_u0 = vcat(Xₙ[1,1], randn(rng, Float32, 1))
+parameters = ComponentVector(vector_field_model = p)
+prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, parameters, saveat = 0.25f0)
 
 losses = Float32[]
 
 function predict(θ, t)
     sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
     new_problem = remake(prob_nn; p = θ, tspan = (0.0f0, t))
-    Array(solve(new_problem, AutoTsit5(Rosenbrock23()), abstol = 1e-6, reltol = 1e-6, sensealg = sensealg))  
+    Array(solve(new_problem, AutoTsit5(Rosenbrock23()), p = θ, abstol = 1e-6, reltol = 1e-6, sensealg = sensealg))  
 end
 
 @time X_ = predict(parameters, t[end])
@@ -135,8 +139,12 @@ end
 
 res_msu = θs[end]
 
+losses[end]
+
 full_traj = predict(res_msu, t_train[end])
 
+plot(t_train, full_traj[1,:], label = "Predicted")
+scatter!(t_train, y_train, label = "Data")
 
 ###################################################################################################
 # Testing 
@@ -159,7 +167,7 @@ function plot_results(t, real, pred, pred_new)
     scatter!(t3, solution_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/gw-test-results.png")
+    savefig("Results/LV/ANODE-EH LV Training and Testing.png")
 end
 
 plot_results(t, Xₙ, full_traj, prediction_new)
