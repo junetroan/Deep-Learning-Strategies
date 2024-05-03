@@ -1,4 +1,4 @@
-#Test with F1 telemetry data
+#Test with HL data
 
 using DifferentialEquations
 using SciMLSensitivity
@@ -14,6 +14,7 @@ using Plots
 using Statistics
 using StatsBase
 gr()
+
 
 data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame, header = true)
@@ -41,16 +42,103 @@ tsteps = range(tspan[1], tspan[2], length = length(X_train))
 # Interpolation of given data
 y_zoh = ConstantInterpolation(X_train, tsteps)
 
-i = 2
+iters = 2
 state = 2
-u0 = [X_train[1], mean(X_train)]
+
+#################################################################################################################################################
+
+@time begin
+    for i in 1:iters
+
+        println("Simulation $i")
+
+        rng1 = StableRNG(i+1)
+        rng2 = StableRNG(i+2)
+        u0 = [X_train[1], mean(X_train)]
+        K = rand(rng2, Float32, 2)
+
+        U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
+
+        p, st = Lux.setup(rng1, U)
+
+        function predictor!(du,u,p,t)
+            û = U(u, p.vector_field_model, st)[1]
+            yt = y_zoh(t)
+            e = yt .- û[1]
+            du[1:end] =  û[1:end] .+ abs.(p.K) .* e
+        end
+                    
+        params = ComponentVector{Float32}(vector_field_model = p, K = K)
+        prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
+        soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+
+        function prediction(p)
+            _prob = remake(prob_nn, u0 = u0, p = p)
+            sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
+            #Array(solve(_prob, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = tsteps , sensealg = sensealg))
+            Array(solve(_prob, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = tsteps, sensealg = sensealg))
+            
+        end
+
+        function predloss(p)
+            yh = prediction(p)
+            e2 = mean(abs2, X_train .- yh[1,:])
+            return e2
+        end
+                        
+        predloss(params)
+                        
+        losses = Float32[]
+        Ks = []
+
+        callback = function (p, l)
+            push!(losses, predloss(p))
+            push!(Ks, p.K[1:end])
+                        
+            if length(losses) % 50 == 0
+                println("Current loss after $(length(losses)) iterations: $(losses[end])")
+            end
+            return false
+        end
+
+        adtype = Optimization.AutoZygote()
+        optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
+        optprob = Optimization.OptimizationProblem(optf, params)
+        @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) 
+        # Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 5000 iterations
+        # The abstol and reltol is also changed from 10e-8 to 10e-6
+
+        losses_df = DataFrame(losses = losses)
+        CSV.write("Results/Simulations/HL/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+                    
+
+        full_traj = prediction(res_ms.u)
+
+        function plot_results(t, real, pred)
+            plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised NPEM Model", xlabel = "Time", ylabel = "Population")
+            scatter!(t, real, label = "Training Data")
+            plot!(legend=:topright)
+            savefig("Results/Simulations/HL/Plots/Simulation $i.png")
+        end
+
+        plot_results(tsteps, X_train, full_traj)
+
+
+
+    end
+end
+
+
+#################################################################################################################################################
+
+i = 2 
 
 rng1 = StableRNG(i+1)
 rng2 = StableRNG(i+2)
 
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
-
+u0 = [X_train[1], mean(X_train)]
 K = rand(rng2, Float32, 2)
 
 function predictor!(du,u,p,t)
@@ -96,7 +184,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) 
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 50, verbose = false, callback=callback) 
 # Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 5000 iterations
 # The abstol and reltol is also changed from 10e-8 to 10e-6
 
@@ -108,7 +196,7 @@ full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
     plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Time", ylabel = "Speed")
-    plot!(t, real, label = "Training Data")
+    scatter!(t, real, label = "Training Data")
     plot!(legend=:topright)
     #savefig("sim-F1-PEM/Plots/Simulation $i.png")
 end
