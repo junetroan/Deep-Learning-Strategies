@@ -176,14 +176,14 @@ plot!(x, x, label = "Parity", color = :orange) # Add this line
 
 #####################################################################################################################################################################
 # Testing 
-
+u0 = vcat(res_ms.u.u0_init[1,:])
 p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 tsteps = 0.0:0.25:40.0
 
 x_test = solution_new[1,:]
-u0 = vcat(res_ms.u.u0_init[1,:])
+
 prob_nn_updated = remake(prob_node, u0 = u0, tspan = (0.0f0, 40.0f0), p = res_ms.u.θ)
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 t_train  = 0.0:0.25:10.0 |> collect
@@ -193,7 +193,7 @@ t3 = tsteps[41:123] |> collect
 gr()
 
 function plot_results(t, real, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Population")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of MNODE-MS Model", xlabel = "Time", ylabel = "Population")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
     scatter!(t1, real, label = "Training Data")
     scatter!(t3, solution_new[1,41:123], label = "Test Data")

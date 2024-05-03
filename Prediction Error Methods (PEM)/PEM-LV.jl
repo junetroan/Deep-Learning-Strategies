@@ -131,7 +131,7 @@ t1 = t
 t3 = updated_obsgrid[41:123] |> collect
 gr()
 function plot_results(t, real, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of NPEM Model", xlabel = "Time", ylabel = "Population")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
     scatter!(t1, real[1,:], label = "Training Data")
     scatter!(t3, solution_new[1,41:123], label = "Test Data")

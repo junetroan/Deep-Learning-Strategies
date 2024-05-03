@@ -177,7 +177,7 @@ optprob = Optimization.OptimizationProblem(optf, params)
 final_traj = predict_final(res_ms.u)[1,:]
 
 function plot_first()
-    plot(final_traj, label = "Prediction", title="Training Predictions of ANODE-MS Model with ADAM", xlabel = "Time", ylabel = "Population")
+    plot(final_traj, label = "Prediction", title="Training Predictions of ANODE-MS I", xlabel = "Time", ylabel = "Population")
     scatter!(Xₙ[1,:], label = "Training Data")   
     savefig("Results/LV/ANODE-MS LV Training with ADAM.png")
 end
@@ -200,7 +200,7 @@ total_loss = abs(sum(actual_loss))
 final_full_trajectory_loss = final_loss(res_final.u)
 
 function plot_second()
-    plot(full_traj2[1,:], label = "Prediction", title="Training Predictions of ANODE-MS Model with BFGS", xlabel = "Time", ylabel = "Population")
+    plot(full_traj2[1,:], label = "Prediction", title="Training Predictions of ANODE-MS II", xlabel = "Time", ylabel = "Population")
     scatter!(Xₙ[1,:], label = "Training Data")   
     savefig("Results/LV/ANODE-MS LV Training with ADAM and BFGS.png")
 end
@@ -216,25 +216,25 @@ p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
-
-predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
+predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
-prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
+prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
 saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 updated_obsgrid = 0.0:0.25:40.0
 t1 = t
 t3 = updated_obsgrid[41:123] |> collect
 
+
 gr()
 function plot_results(t, real, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Population")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Population")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
     scatter!(t1, real[1,:], label = "Training Data")
     scatter!(t3, solution_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/ANODE-MS LV Training and Testing.png")
+    savefig("Results/LV/ANODE-MS II LV Training and Testing.png")
 end
 
 plot_results(t, Xₙ, full_traj2, prediction_new)
