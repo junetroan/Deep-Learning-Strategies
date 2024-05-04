@@ -162,7 +162,6 @@ optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback)
 
-
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
 preds = predict_single_shooting(res_ms.u.θ)
 
@@ -174,6 +173,43 @@ scatter(x, preds[1,:], label = "Data", color = :purple)
 plot!(x, x, label = "Parity", color = :orange) # Add this line
 
 
+#####################################################################################################################################################################
+# Test with BFGS
+# Does not work with current implementation
+#=
+u0_inits = res_ms.u.u0_init
+u0_inits_all = Matrix{Float32}(u0_inits)
+#probnnup = remake(prob_node, θ = res_ms.u.θ, u0_init = u0_inits_all)
+probnnup = remake(prob_node, vector_field_model = res_ms.u.θ)
+sols = Array(solve(probnnup, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+
+function predict_final(θ)
+    u0_all = θ.u0_init
+    u0_all = Matrix{Float32}(u0_all)
+    prob_nn_updated = remake(prob_node, θ = θ, u0_init = u0_all)
+    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 0.25f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+    return X̂
+end
+
+predict_final(res_ms.u)
+
+function final_loss(θ)
+    X̂ = predict_final(θ)
+    prediction_error = sum(abs2, x .- X̂[1, :])
+    return prediction_error
+end
+
+optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
+optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
+@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+
+full_traj2 = predict_final(res_final.u)
+actual_loss = Xₙ[1,:] - full_traj2[1,:]
+total_loss = abs(sum(actual_loss))
+
+final_full_trajectory_loss = final_loss(res_final.u)
+=#
 #####################################################################################################################################################################
 # Testing 
 u0 = vcat(res_ms.u.u0_init[1,:])
