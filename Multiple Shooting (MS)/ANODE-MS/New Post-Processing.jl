@@ -2,9 +2,11 @@ using CSV
 using DataFrames
 using Plots
 using Statistics
-using
-
+using CSV
+using PlotlyKaleido
 # Set the backend for Plots to Plotly
+
+PlotlyKaleido.start()
 plotly()
 
 # Function to read CSV files into a DataFrame
@@ -22,9 +24,9 @@ end
 
 # Plotting function for loss evolution
 function plot_loss(df, title)
-    p = plot(title=title, xlabel="Iterations", ylabel="Loss")
+    p = Plots.plot(title=title, xlabel="Iterations", ylabel="Loss")
     for col_name in names(df)
-        plot!(p, df[!, col_name], label=String(col_name))
+        Plots.plot!(p, df[!, col_name], label=String(col_name))
     end
     #display(p)
     Plots.savefig(p, title * ".png")
@@ -34,15 +36,15 @@ end
 function average_loss_plot(df, title)
     row_means = mean.(eachrow(df))
     row_stds = std.(eachrow(df))
-    p = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title=title, xlabel="Iteration", ylabel="Average Loss", legend=:bottomright, yscale=:log10)
+    p = Plots.plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title=title, xlabel="Iteration", ylabel="Average Loss", legend=:bottomright, yscale=:log10)
     #display(p)
-    Plots.savefig(p, title * ".png")
+    #Plots.savefig(p, title * ".png")
 end
 
 # Directory paths for data
 folder_path_ANODE = "/Users/junetroan/Desktop/data-ANODEMS-LV-correct/Loss Data"
 folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
-folder_path_PEM = "/Users/junetroan/Desktop/Results/files Ks/Loss Data Ks"
+folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
 
 # Data reading
 df_ANODE = read_data(folder_path_ANODE)
@@ -50,12 +52,16 @@ df_NODE = read_data(folder_path_NODE)
 df_PEM = read_data(folder_path_PEM)  # Assuming you want a specific range here
 
 # Plotting loss evolution
-plot_loss(df_ANODE, "Loss Evolution of ANODE-MS II Model")
+plot_loss(df_ANODE, "Loss Evolution of ANODE-MS I Model")
 plot_loss(df_NODE, "Loss Evolution of MNODE-MS Model")
 plot_loss(df_PEM, "Loss Evolution of NPEM Model")
 
 # Average loss plots
-average_loss_plot(df_ANODE, "Average Loss Evolution of ANODE-MS II Model (logscale)")
+average_loss_plot(df_ANODE, "Average Loss Evolution of ANODE-MS I Model")
+average_loss_plot(df_NODE, "Average Loss Evolution of MNODE-MS Model")
+average_loss_plot(df_PEM, "Average Loss Evolution of NPEM Model")
+
+average_loss_plot(df_ANODE, "Average Loss Evolution of ANODE-MS I Model (logscale)")
 average_loss_plot(df_NODE, "Average Loss Evolution of MNODE-MS Model (logscale)")
 average_loss_plot(df_PEM, "Average Loss Evolution of NPEM Model (logscale)")
 
@@ -96,9 +102,42 @@ function compare(df1, df2)
     #Plots.savefig(p3, "Results/LV/Comparison ANODE-MS vs. MNODE-MS (Log Scale).png")
 
     #Plots.savefig(p, "Results/LV/Comparison MNODE-MS vs. NPEM.png")
-    Plots.savefig(p3, "Results/LV/Comparison MNODE-MS vs. NPEM (Log Scale).png")
+    #Plots.savefig(p3, "Results/LV/Comparison MNODE-MS vs. NPEM (Log Scale).png")
 end
 
 compare(df_ANODE, df_PEM)
 compare(df_ANODE, df_NODE)
 compare(df_NODE, df_PEM)
+
+
+path_Ks = "/Users/junetroan/Desktop/Results/files Ks/Ks"
+file_names_Ks = readdir(path_Ks)
+files = file_names_Ks[1:400]
+df_Ks = DataFrame()
+
+df_Ks = read_data(path_Ks)
+
+matrix_Ks = Matrix(df_Ks)
+
+
+heat = heatmap(matrix_Ks, 
+        title = "Heatmap of K values over 400 Simulations",
+        xlabel = "Iterations",
+        ylabel = "Simulations",
+        color = :plasma,
+        aspect_ratio = :auto)
+
+savefig(heat, "Multiple Shooting (MS)/ANODE-MS/Case Studies/Heatmap of K values.png")
+
+final_Ks = matrix_Ks[500, :]
+
+hist = histogram(final_Ks, 
+    title = "Histogram of K values after 400 Simulations",
+    xlabel = "K values",
+    ylabel = "Frequency",
+    color = :orange,
+    legend = false,
+    bins = 20)
+
+
+display(hist)
