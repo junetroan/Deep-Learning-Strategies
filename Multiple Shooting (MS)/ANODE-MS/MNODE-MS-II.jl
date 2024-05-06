@@ -37,14 +37,18 @@ groupsize = 5
 predsize = 5
 tsteps = 0.25
 
+u0 = Float64(x[first(1:5)])
+u0_init = [[x[first(rg)]; fill(mean(x[rg]), state - 1)] for rg in ranges] 
+u0_init = mapreduce(permutedims, vcat, u0_init)
+
 # NEURAL NETWORK
 U = Lux.Chain(Lux.Dense(state, 30, tanh),
               Lux.Dense(30, state))
               
 p, st = Lux.setup(rng, U)
-params = ComponentVector{Float64}(vector_field_model = p)
+params = ComponentVector{Float64}(θ = p, u0_init = u0)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
+prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, params)
 
 datasize = size(x, 1)
 tspan = (0.0, 10.0) # Original (0.0f0, 10.0f0
@@ -68,9 +72,7 @@ function group_ranges(datasize::Integer, groupsize::Integer)
 end
 
 ranges = group_ranges(datasize, group_size)
-u0 = Float64(x[first(1:5)])
-u0_init = [[x[first(rg)]; fill(mean(x[rg]), state - 1)] for rg in ranges] 
-u0_init = mapreduce(permutedims, vcat, u0_init)
+
 
 function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
     continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
@@ -84,7 +86,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     ranges = group_ranges(datasize, group_size)
 
-    sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
+    sols = [solve(remake(prob_node; θ = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
         solver, saveat = tsteps[rg], sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true)))
         for (index, rg) in enumerate(ranges)]
@@ -114,7 +116,7 @@ end
 loss_function(data, pred) = sum(abs2, data - pred)
 continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
 predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
-tester_pred_ss = predict_single_shooting(params.vector_field_model)
+tester_pred_ss = predict_single_shooting(params.θ)
 
 function loss_single_shooting(p)
     pred = predict_single_shooting(p)
@@ -122,16 +124,16 @@ function loss_single_shooting(p)
     return l, pred
 end
 
-ls, ps = loss_single_shooting(params.vector_field_model)
+ls, ps = loss_single_shooting(params.θ)
 
 continuity_term = 10.0
-params = ComponentVector{Float64}(θ = p, u0_init = u0_init)
+#pars = ComponentVector{Float64}(θ = p, u0_init = u0_init)
 ls, ps = multiple_shoot_mod(params, x, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size; continuity_term)
 
 #lossses, preds = predict_single_shooting(params.p)
 
 # Modified multiple_shoot method 
-multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
+multiple_shoot_mod(pars, x, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
     continuity_term)
 
@@ -141,10 +143,10 @@ function loss_multiple_shoot(p)
         continuity_term)[1]
 end
 
-test_multiple_shoot = loss_multiple_shoot(params)
+test_multiple_shoot = loss_multiple_shoot(pars)
 #test_multiple_shoot[1]
 
-loss_single_shooting(params.θ)[1]
+loss_single_shooting(pars.θ)[1]
 
 losses = Float64[]
 
@@ -159,7 +161,7 @@ end
 
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, params)
+optprob = Optimization.OptimizationProblem(optf, pars)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback)
 
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)
@@ -176,11 +178,11 @@ plot!(x, x, label = "Parity", color = :orange) # Add this line
 #####################################################################################################################################################################
 # Test with BFGS
 # Does not work with current implementation
-#=
+
 u0_inits = res_ms.u.u0_init
 u0_inits_all = Matrix{Float64}(u0_inits)
 #probnnup = remake(prob_node, θ = res_ms.u.θ, u0_init = u0_inits_all)
-probnnup = remake(prob_node, vector_field_model = res_ms.u.θ)
+probnnup = remake(prob_node, θ = res_ms.u.θ, u0_init = u0_inits_all)
 sols = Array(solve(probnnup, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 0.25, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
 
@@ -209,7 +211,7 @@ actual_loss = Xₙ[1,:] - full_traj2[1,:]
 total_loss = abs(sum(actual_loss))
 
 final_full_trajectory_loss = final_loss(res_final.u)
-=#
+
 #####################################################################################################################################################################
 # Testing 
 u0 = vcat(res_ms.u.u0_init[1,:])
