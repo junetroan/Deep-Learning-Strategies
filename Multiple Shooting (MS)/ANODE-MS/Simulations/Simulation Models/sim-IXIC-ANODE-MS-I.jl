@@ -21,15 +21,15 @@ split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
-t_train = collect(1:Int(round(split_ratio*size(open_price, 1))))
-
-t_test = collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1))
+t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
+t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
 
 transformer = fit(ZScoreTransform, open_price)
-X_train = vec(StatsBase.transform(transformer, train))
-X_test = vec(StatsBase.transform(transformer, test))
+X_train = vec(Float32.(StatsBase.transform(transformer, train)))
+X_test = vec(Float32.(StatsBase.transform(transformer, test)))
 
 t = collect(1:size(data, 1))
+t = Float32.(t)
 tspan = (minimum(t_train), maximum(t_train))
 
 # Define the experimental parameter
@@ -38,7 +38,7 @@ predsize = 5
 state = 2
 
 
-fulltraj_losses = Float64[]
+fulltraj_losses = Float32[]
 
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
@@ -71,8 +71,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-augmented_u0 = vcat(X_train[1], randn(rng3, state - 1))
-params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
+augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
+params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
 function group_x(X::Vector, groupsize, predictsize)
@@ -94,7 +94,7 @@ function predict(θ)
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-6, reltol = 1e-6, 
+    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
@@ -102,14 +102,14 @@ function loss(θ)
     X̂ = predict(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
     prediction_error = mean(abs2, targets .- X̂[1,:,:])
-    prediction_error + continuity*10.0
+    prediction_error + continuity*10f0
 end
 
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
     prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
-    X̂ = Array(solve(prob_nn_updated, AutoTsit5(Rosenbrock23()), abstol = 1e-6, reltol = 1e-6, 
+    X̂ = Array(solve(prob_nn_updated, AutoTsit5(Rosenbrock23()), abstol = 1f-6, reltol = 1f-6, 
     saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
     X̂
 end
@@ -120,7 +120,7 @@ function final_loss(θ)
     prediction_error
 end
 
-losses = Float64[]
+losses = Float32[]
 
 callback = function (θ, l)
 
@@ -144,36 +144,30 @@ full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 push!(fulltraj_losses, full_traj_loss)
 
-preds = predict(res_ms.u)
-
-optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
-optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
-@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
-
 function plot_results(tp,tr, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting IXIC data", xlabel = "Time", ylabel = "Price [USD]")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/IXIC/Training ANODE-MS II Model on IXIC data.png")
+    savefig("Results/IXIC/Plots/Simulation $i.png")
 end
 
 plot_results(t_train, t, X_train, full_traj)
 
 test_tspan = (t_test[1], t_test[end])
-predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
+predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
-prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = test_tspan)
-prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
-saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
+saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Opening Price")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS I Model", xlabel = "Time", ylabel = "Opening Price")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/IXIC/Training and testing of ANODE-MS II Model on IXIC data.png")
+    #savefig("Results/IXIC/ANODE-MS IXIC Training and Testing.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)
