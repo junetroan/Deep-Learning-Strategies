@@ -110,16 +110,33 @@ compare(df_ANODE, df_NODE)
 compare(df_NODE, df_PEM)
 
 
-path_Ks = "/Users/junetroan/Desktop/Results/files Ks/Ks"
-file_names_Ks = readdir(path_Ks)
-files = file_names_Ks[1:400]
-df_Ks = DataFrame()
+function load_files(directory, num_files)
+    df = DataFrame()  # Initialize an empty DataFrame
+    
+    for i in 1:num_files
+        file_path = joinpath(directory, "Ks $i.csv")
+        if isfile(file_path)
+            try
+                # Specify the delimiter as comma
+                temp_df = CSV.read(file_path, DataFrame, delim=',')
+                df = vcat(df, temp_df, cols=:union)  # Concatenate using union of columns
+            catch error
+                println("Failed to read $file_path: $error")
+            end
+        else
+            println("File does not exist: $file_path")
+        end
+    end
+    return df
+end
 
-df_Ks = read_data(path_Ks)
+# Usage
+final_df = load_files("/Users/junetroan/Desktop/Results/Ks", 500)
 
 matrix_Ks = Matrix(df_Ks)
 
 
+#=
 heat = heatmap(matrix_Ks, 
         title = "Heatmap of K values over 400 Simulations",
         xlabel = "Iterations",
@@ -141,3 +158,4 @@ hist = histogram(final_Ks,
 
 
 display(hist)
+=#

@@ -108,7 +108,7 @@ fulltraj_losses = Float32[]
         #CSV.write("Loss Data Ks/Ks $i.csv", Ks_df, writeheader = false)
         #CSV.write("Loss Data Ks/Losses $i.csv", losses_df, writeheader = false)
 
-        res_ms.u.K =  zeros(Float32, state)
+        res_ms.u.K = zeros(Float32, state)
         full_traj = prediction(res_ms.u)
         full_traj_loss = predloss(res_ms.u)
         push!(fulltraj_losses, full_traj_loss)
