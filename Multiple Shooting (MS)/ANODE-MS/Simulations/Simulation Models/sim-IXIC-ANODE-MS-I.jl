@@ -21,15 +21,15 @@ split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
-t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
-t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
+t_train = Float64.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
+t_test = Float64.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
 
 transformer = fit(ZScoreTransform, open_price)
-X_train = vec(Float32.(StatsBase.transform(transformer, train)))
-X_test = vec(Float32.(StatsBase.transform(transformer, test)))
+X_train = vec(Float64.(StatsBase.transform(transformer, train)))
+X_test = vec(Float64.(StatsBase.transform(transformer, test)))
 
 t = collect(1:size(data, 1))
-t = Float32.(t)
+t = Float64.(t)
 tspan = (minimum(t_train), maximum(t_train))
 
 # Define the experimental parameter
@@ -38,7 +38,7 @@ predsize = 5
 state = 2
 
 
-fulltraj_losses = Float32[]
+fulltraj_losses = Float64[]
 
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
@@ -71,8 +71,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
-params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+augmented_u0 = vcat(X_train[1], randn(rng3, Float64, state - 1))
+params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
 function group_x(X::Vector, groupsize, predictsize)
@@ -94,7 +94,7 @@ function predict(θ)
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
+    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-6, reltol = 1e-6, 
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
@@ -145,10 +145,10 @@ full_traj_loss = final_loss(res_ms.u)
 push!(fulltraj_losses, full_traj_loss)
 
 function plot_results(tp,tr, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting IXIC data", xlabel = "Time", ylabel = "Price [USD]")
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/IXIC/Plots/Simulation $i.png")
+    savefig("Results/IXIC/Training ANODE-MS I Model on IXIC data.png")
 end
 
 plot_results(t_train, t, X_train, full_traj)
@@ -160,6 +160,11 @@ prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
 saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
+actual_loss = X_test-prediction_new[1,:]
+total_loss = abs(sum(actual_loss))
+total_loss2 = abs2(sum(actual_loss))
+MSE = total_loss2 / length(solution_new[1,:])
+
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS I Model", xlabel = "Time", ylabel = "Opening Price")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
@@ -167,7 +172,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/IXIC/ANODE-MS IXIC Training and Testing.png")
+    savefig("Results/IXIC/Training and testing of ANODE-MS I Model on IXIC data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)

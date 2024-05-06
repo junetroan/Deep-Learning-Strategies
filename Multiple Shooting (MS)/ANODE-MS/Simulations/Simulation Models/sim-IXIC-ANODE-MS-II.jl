@@ -150,6 +150,10 @@ optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
 
+full_traj2 = predict_final(res_final.u)
+actual_loss = X_train .- full_traj2[1, :]
+total_loss = mean(abs2, actual_loss)
+
 function plot_results(tp,tr, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
     plot!(tp, real, label = "Training Data")
@@ -157,7 +161,7 @@ function plot_results(tp,tr, real, pred)
     savefig("Results/IXIC/Training ANODE-MS II Model on IXIC data.png")
 end
 
-plot_results(t_train, t, X_train, full_traj)
+plot_results(t_train, t, X_train, full_traj2)
 
 test_tspan = (t_test[1], t_test[end])
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
@@ -165,6 +169,9 @@ u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = test_tspan)
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
 saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+test_loss = X_test - prediction_new[1, :]
+total_loss_test = mean(abs2, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Opening Price")
@@ -176,4 +183,4 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     savefig("Results/IXIC/Training and testing of ANODE-MS II Model on IXIC data.png")
 end
 
-plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)
+plot_results(t_train, t_test, X_train, X_test, full_traj2, prediction_new)

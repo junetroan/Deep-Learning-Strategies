@@ -26,17 +26,17 @@ split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
-t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
-t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
+t_train = Float64.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
+t_test = Float64.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
 
 transformer = fit(ZScoreTransform, open_price)
-X_train = vec(Float32.(StatsBase.transform(transformer, train)))
-X_test = vec(Float32.(StatsBase.transform(transformer, test)))
+X_train = vec(Float64.(StatsBase.transform(transformer, train)))
+X_test = vec(Float64.(StatsBase.transform(transformer, test)))
 
 plot(X_train)
 
 t = collect(1:size(data, 1))
-t = Float32.(t)
+t = Float64.(t)
 tspan = (minimum(t_train), maximum(t_train))
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
@@ -47,7 +47,7 @@ groupsize = 5
 predsize = 5
 state = 2
 
-fulltraj_losses = Float32[]
+fulltraj_losses = Float64[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
 iters = 2
@@ -63,7 +63,7 @@ Lux.Dense(30, state))
 
 tsteps = 1.0f0
 p, st = Lux.setup(rng_1, U)
-params = ComponentVector{Float32}(vector_field_model = p)
+params = ComponentVector{Float64}(vector_field_model = p)
 u0 = vcat(X_train[1], randn(rng_2, Float32, state - 1))
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
@@ -148,7 +148,7 @@ end
 ls, ps = loss_single_shooting(params.vector_field_model)
 
 continuity_term = 10.0
-params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
+params = ComponentVector{Float64}(θ = p, u0_init = u0_init)
 ls, ps = multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize; continuity_term)
 
 # Modified multiple_shoot method 
@@ -167,7 +167,7 @@ test_multiple_shoot = loss_multiple_shoot(params)
 
 loss_single_shooting(params.θ)[1]
 
-losses = Float32[]
+losses = Float64[]
 
 callback = function (θ, l)
     push!(losses, loss_multiple_shoot(θ))
@@ -193,10 +193,10 @@ plot(preds[1, :])
 scatter!(X_train)
 
 function plot_results(real, pred, t)
-    plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
+    plot(t, pred[1,:], label = "Training Prediction", title="Trained MNODE-MS Model predicting IXIC data", xlabel="Time", ylabel="Opening Price")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Multiple Shooting (MS)/ANODE-MS/Simulations/Results/sim-LV-MNODE-MS/Plots/Simulation $i.png")
+    savefig("Results/IXIC/Training MNODE-MS Model on IXIC data.png")
 end
 
 plot_results(X_train, preds, t_train)
@@ -206,6 +206,10 @@ u0 = vcat(res_ms.u.u0_init[1,:])
 prob_nn_updated = remake(prob_node, p = res_ms.u.θ, u0 = u0, tspan = test_tspan)
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
+test_loss = X_test - prediction_new[1,:]
+actual_loss = mean(abs2, test_loss)
+
+
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of MNODE-MS Model", xlabel = "Time", ylabel = "Opening Price")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
@@ -213,7 +217,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/IXIC/MNODE-MS IXIC Training and Testing.png")
+    savefig("Results/IXIC/Training and testing of MNODE-MS Model on IXIC data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, preds, prediction_new)

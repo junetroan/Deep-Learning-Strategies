@@ -28,15 +28,15 @@ split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
-t_train = Float32.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
-t_test = Float32.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
+t_train = Float64.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
+t_test = Float64.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
 
 transformer = fit(ZScoreTransform, open_price)
-X_train = vec(Float32.(StatsBase.transform(transformer, train)))
-X_test = vec(Float32.(StatsBase.transform(transformer, test)))
+X_train = vec(Float64.(StatsBase.transform(transformer, train)))
+X_test = vec(Float64.(StatsBase.transform(transformer, test)))
 
 t = collect(1:size(data, 1))
-t = Float32.(t)
+t = Float64.(t)
 tspan = (minimum(t_train), maximum(t_train))
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
@@ -55,7 +55,7 @@ rng2 = StableRNG(i+2)
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
 
-K = rand(rng2, Float32, 2)
+K = rand(rng2, Float64, 2)
 
 function predictor!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
@@ -64,9 +64,9 @@ function predictor!(du,u,p,t)
     du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
     
-params = ComponentVector{Float32}(vector_field_model = p, K = K)
-prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
-soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+params = ComponentVector{Float64}(vector_field_model = p, K = K)
+prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0)
+soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
 
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
@@ -82,7 +82,7 @@ end
         
 predloss(params)
         
-losses = Float32[]
+losses = Float64[]
 K = []
 
 callback = function (p, l)
@@ -100,7 +100,6 @@ optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
 
-
 losses_df = DataFrame(losses = losses)
 CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
     
@@ -108,10 +107,10 @@ CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
-    plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("sim-F1-PEM/Plots/Simulation $i.png")
+    savefig("Results/IXIC/Training NPEM Model on IXIC data.png")
 end
 
 plot_results(tsteps, X_train, full_traj)
@@ -126,19 +125,22 @@ function simulator!(du,u,p,t)
     du[1:end] =  û[1:end]
 end
 
-params_test = ComponentVector{Float32}(vector_field_model = p)
+params_test = ComponentVector{Float64}(vector_field_model = p)
 prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
 prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
-soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0))
+soln_nn = Array(solve(prob, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
+
+test_loss = y_test .- soln_nn[1,:]
+actual_loss = mean(abs2, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Opening Price")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Testing of NPEM Model", xlabel = "Time", ylabel = "Opening Price")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/IXIC/ANODE-MS IXIC Training and Testing.png")
+    savefig("Results/IXIC/Training and testing of NPEM Model on IXIC data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
