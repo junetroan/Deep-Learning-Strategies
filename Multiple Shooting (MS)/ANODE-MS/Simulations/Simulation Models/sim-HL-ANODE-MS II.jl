@@ -39,7 +39,6 @@ state = 2
 
 fulltraj_losses = Float64[]
 
-#=
 # NUMBER OF ITERATIONS OF THE SIMULATION
 iters = 2
 
@@ -141,21 +140,30 @@ iters = 2
         optprob = Optimization.OptimizationProblem(optf, params)
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
-        losses_df = DataFrame(loss = losses)
-        CSV.write("sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
         push!(fulltraj_losses, full_traj_loss)
 
+        optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
+        optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
+        @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+
+        full_traj2 = predict_final(res_final.u)
+
+        losses_df = DataFrame(loss = losses)
+        CSV.write("Results/HL/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+
         function plot_results(tp,tr, real, pred)
-            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
+            plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting Hare data", xlabel = "Time", ylabel = "Population")
             plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("sim-HL-ANODE-MS/Plots/Simulation $i.png")
+            savefig("Results/HL/Plots/Training ANODE-MS II Model on Hare data.png")
         end
 
-        plot_results(t_train, t, X_train, full_traj)
+        plot_results(t_train, t, X_train, full_traj2)
+
 
         if i==iters
             println("Simulation finished")
@@ -164,7 +172,8 @@ iters = 2
 
     end
 end
-=#
+
+#=
 
 i = 1
 
@@ -322,3 +331,5 @@ plot_results(X_train, X_test, full_traj2, prediction_new)
 
 plot(full_traj[1,:])
 plot!(prediction_new[1,:])
+
+=#

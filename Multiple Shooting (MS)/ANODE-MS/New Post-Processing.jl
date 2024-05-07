@@ -42,9 +42,13 @@ function average_loss_plot(df, title)
 end
 
 # Directory paths for data
-folder_path_ANODE = "/Users/junetroan/Desktop/data-ANODEMS-LV-correct/Loss Data"
-folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
-folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
+#folder_path_ANODE = "/Users/junetroan/Desktop/data-ANODEMS-LV-correct/Loss Data"
+#folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
+#folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
+
+folder_path_ANODE = "/Users/junetroan/Desktop/Results/ANODE-MS I/Loss Data"
+folder_path_NODE = "/Users/junetroan/Desktop/HL_modifiedMS/Loss Data"
+folder_path_PEM = "/Users/junetroan/Desktop/HL NPEM Loss Data/Loss Data"
 
 # Data reading
 df_ANODE = read_data(folder_path_ANODE)

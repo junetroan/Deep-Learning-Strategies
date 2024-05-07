@@ -39,7 +39,6 @@ state = 2
 
 fulltraj_losses = Float64[]
 
-#=
 # NUMBER OF ITERATIONS OF THE SIMULATION
 iters = 2
 
@@ -164,8 +163,8 @@ iters = 2
 
     end
 end
-=#
 
+#=
 i = 1
 
 #Generating random numbers
@@ -314,3 +313,5 @@ plot_results(X_train, X_test, full_traj, prediction_new)
 
 plot(full_traj[1,:])
 plot!(prediction_new[1,:])
+
+=#
