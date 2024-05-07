@@ -37,7 +37,7 @@ predsize = 5
 state = 2
 
 
-fulltraj_losses = Float32[]
+fulltraj_losses = Float64[]
 
 #=
 # NUMBER OF ITERATIONS OF THE SIMULATION
@@ -75,8 +75,8 @@ iters = 2
         nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
         # Construct ODE Problem
-        augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
-        params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+        augmented_u0 = vcat(X_train[1], randn(rng3, Float63, state - 1))
+        params = ComponentVector{Float63}(vector_field_model = p, initial_condition_model = p0)
         prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
         function group_x(X::Vector, groupsize, predictsize)
@@ -98,7 +98,7 @@ iters = 2
             end
             sensealg = ReverseDiffAdjoint()
             shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-            Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
+            Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-6, reltol = 1e-6, 
             p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
         end
 
@@ -106,14 +106,14 @@ iters = 2
             X̂ = predict(θ)
             continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
             prediction_error = mean(abs2, targets .- X̂[1,:,:])
-            prediction_error + continuity*10f0
+            prediction_error + continuity*10
         end
 
         function predict_final(θ)
             predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
             u0_all = vcat(u0_vec[1], predicted_u0_nn)
             prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
-            X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
+            X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, 
             saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
             X̂
         end
@@ -124,7 +124,7 @@ iters = 2
             prediction_error
         end
 
-        losses = Float32[]
+        losses = Float63[]
 
         callback = function (θ, l)
 
@@ -195,8 +195,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
-params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+augmented_u0 = vcat(X_train[1], randn(rng3, state - 1))
+params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
 function group_x(X::Vector, groupsize, predictsize)
@@ -218,7 +218,7 @@ function predict(θ)
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
+    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-6, reltol = 1e-6, 
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
@@ -226,14 +226,14 @@ function loss(θ)
     X̂ = predict(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
     prediction_error = mean(abs2, targets .- X̂[1,:,:])
-    prediction_error + continuity*10f0
+    prediction_error + continuity*10
 end
 
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
     prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
-    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
+    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, 
     saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
     X̂
 end
@@ -244,7 +244,7 @@ function final_loss(θ)
     prediction_error
 end
 
-losses = Float32[]
+losses = Float64[]
 
 callback = function (θ, l)
 
@@ -259,7 +259,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 losses_df = DataFrame(loss = losses)
 CSV.write("sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
@@ -268,20 +268,21 @@ full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 push!(fulltraj_losses, full_traj_loss)
 
-function plot_results(tp,tr, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
-    plot!(tp, real, label = "Training Data")
-    plot!(legend=:topright)
-    savefig("sim-HL-ANODE-MS/Plots/Simulation $i.png")
-end
-
-plot_results(t_train, t, X_train, full_traj)
 
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
 
 full_traj2 = predict_final(res_final.u)
+
+function plot_results(tp,tr, real, pred)
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting Hare data", xlabel = "Time", ylabel = "Population")
+    plot!(tp, real, label = "Training Data")
+    plot!(legend=:topright)
+    savefig("Results/HL/Training ANODE-MS II Model on Hare data.png")
+end
+
+plot_results(t_train, t, X_train, full_traj2)
 
 #############################################################################################################################################################################################
 # Testing 
@@ -296,21 +297,25 @@ tsteps_test = range(tspan_test[1], tspan_test[2], length = length(X_test))
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = tspan_test)
-prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
-saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
+saveat = 1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
 t1 = t_train |> collect
 t3 = t_test |> collect
 t = t |> collect
 
+test_loss = X_test - prediction_new[1,:]
+total_test_loss = sum(abs, test_loss)
+
 gr()
 function plot_results(real_train, real_test, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Population")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Population")
     plot!(t3, pred_new[1,:], label = "Test Prediction")
     scatter!(t1, real_train, label = "Training Data")
     scatter!(t[23:end], real_test, label = "Test Data")
     vline!([t3[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/HL/ANODE-MS HL Training and Testing.png")
+    savefig("Results/HL/Training and testing of ANODE-MS II Model on Hare and Lynx data.png")
 end
 
 plot_results(X_train, X_test, full_traj2, prediction_new)
