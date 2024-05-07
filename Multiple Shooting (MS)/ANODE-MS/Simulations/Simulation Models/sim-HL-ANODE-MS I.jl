@@ -272,7 +272,7 @@ function plot_results(tp,tr, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("Results/HL/Training ANODE-MS I Model on Hare and Lynx data $i.png")
+    savefig("Results/HL/Training ANODE-MS I Model on Hare and Lynx data.png")
 end
 
 plot_results(t_train, t, X_train, full_traj)

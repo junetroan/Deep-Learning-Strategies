@@ -28,14 +28,14 @@ test = data[Int(round(split_ration*size(data, 1))):end, :]
 t = 0.0:1.0:581
 speed = data[:,1]
 
-train_data = convert(Vector{Float32}, train[:,2])
-test_data = convert(Vector{Float32}, test[:,2])
+train_data = convert(Vector{Float64}, train[:,2])
+test_data = convert(Vector{Float64}, test[:,2])
 
 transformer = fit(ZScoreTransform, train_data)
 X_train = StatsBase.transform(transformer, train_data)
 X_test = StatsBase.transform(transformer, test_data)
-t_test = convert(Vector{Float32}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
-t_train = convert(Vector{Float32}, collect(1:Int(round(split_ration*size(data, 1)))))
+t_test = convert(Vector{Float64}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
+t_train = convert(Vector{Float64}, collect(1:Int(round(split_ration*size(data, 1)))))
 tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
@@ -55,7 +55,7 @@ state = 2
         rng1 = StableRNG(i+1)
         rng2 = StableRNG(i+2)
         u0 = [X_train[1], mean(X_train)]
-        K = rand(rng2, Float32, 2)
+        K = rand(rng2, Float64, 2)
 
         U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 
@@ -68,9 +68,9 @@ state = 2
             du[1:end] =  û[1:end] .+ abs.(p.K) .* e
         end
                     
-        params = ComponentVector{Float32}(vector_field_model = p, K = K)
-        prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
-        soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+        params = ComponentVector{Float64}(vector_field_model = p, K = K)
+        prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0)
+        soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
 
         function prediction(p)
             _prob = remake(prob_nn, u0 = u0, p = p)
@@ -88,7 +88,7 @@ state = 2
                         
         predloss(params)
                         
-        losses = Float32[]
+        losses = Float64[]
         Ks = []
 
         callback = function (p, l)
@@ -131,7 +131,7 @@ end
 
 #################################################################################################################################################
 
-i = 2 
+i = 2
 
 rng1 = StableRNG(i+1)
 rng2 = StableRNG(i+2)
@@ -139,7 +139,7 @@ rng2 = StableRNG(i+2)
 U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 p, st = Lux.setup(rng1, U)
 u0 = [X_train[1], mean(X_train)]
-K = rand(rng2, Float32, 2)
+K = rand(rng2, Float64, 2)
 
 function predictor!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
@@ -148,9 +148,9 @@ function predictor!(du,u,p,t)
     du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
             
-params = ComponentVector{Float32}(vector_field_model = p, K = K)
-prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
-soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0 ))
+params = ComponentVector{Float64}(vector_field_model = p, K = K)
+prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0)
+soln_nn = Array(solve(prob_nn, Tsit5(), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
 
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
@@ -168,7 +168,7 @@ end
                 
 predloss(params)
                 
-losses = Float32[]
+losses = Float64[]
 K = []
 
 callback = function (p, l)
@@ -184,7 +184,7 @@ end
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 50, verbose = false, callback=callback) 
+@time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback) 
 # Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 5000 iterations
 # The abstol and reltol is also changed from 10e-8 to 10e-6
 
@@ -195,10 +195,10 @@ losses_df = DataFrame(losses = losses)
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
-    plot(t, pred[1,:], label = "Training Prediction", title="Trained MNODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
-    scatter!(t, real, label = "Training Data")
+    plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting Hare data", xlabel = "Time", ylabel = "Population")
+    plot!(t, real, label = "Training Data")
     plot!(legend=:topright)
-    #savefig("sim-F1-PEM/Plots/Simulation $i.png")
+    savefig("Results/HL/Training NPEM Model on Hare and Lynx data.png")
 end
 
 plot_results(tsteps, X_train, full_traj)
@@ -221,10 +221,10 @@ function simulator!(du,u,p,t)
 end
 
 u0 = [X_test[1], mean(X_test)]
-params_test = ComponentVector{Float32}(vector_field_model = p)
+params_test = ComponentVector{Float64}(vector_field_model = p)
 prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
 prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
-soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
 t1 = t_train |> collect
 t3 = t_test |> collect
@@ -233,7 +233,7 @@ test_loss = X_test - soln_nn[1,:]
 total_test_loss = sum(abs, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of NPEM Model", xlabel = "Time", ylabel = "Population")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
