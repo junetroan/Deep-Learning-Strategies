@@ -321,22 +321,28 @@ optprob = Optimization.OptimizationProblem(optf, params)
 #WORKING UNTIL HERE 💕🤓🥺
 
 losses_df = DataFrame(loss = losses)
-CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 26.03.24.csv", losses_df, writeheader = false)
+CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 07.05.24.csv", losses_df, writeheader = false)
 
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 
+optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
+optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
+@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+
+full_traj2 = predict_final(res_final.u)
+actual_loss = Xₙ[1,:] - full_traj2[1,:]
+total_loss = abs(sum(actual_loss))
+
 
 function plot_training(tp, real, pred)
-    plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
+    plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("Results/F1/Plots/ANODE-MS F1 Training with Single Augmentation - 26.03.24.png")
+    savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
 end
 
 plot_training(t_train, y_train[1,:], full_traj[2,:])
-
-
 
 function predict_test(θ)
     pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
@@ -352,18 +358,39 @@ function predict_test(θ)
 end
 
 ##### Based on plot no need in testing, since training was unsuccessful.... 
-
 test_pred = predict_test(res_ms.u)
 test = test_pred[2,:]
+test_loss = y_test[1,:] - test
+test_total_loss = abs(sum(test_loss))
+
 t1 = t_train
 t3 = t_test # Check whether this starts at the end of the t_train
 
 function plot_results(t1, t3, pred, pred_new, real, sol_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model prediction F1 telemetry", xlabel = "Time", ylabel = "Speed")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Prediction sof ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
     scatter!(t1, real[1,:], label = "Training Data")
     scatter!(t3, sol_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/F1/Plots/ANODE-MS F1 Training and Testing with Single Augmentation - 26.03.24.png")
+    savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
 end
+
+
+function loss_plot(losses)
+    p = plot(losses, label = "Loss", title = "Loss of ANODE-MS Model", xlabel = "Iterations", ylabel = "Loss")
+    display(p)
+    #savefig("Results/F1/Loss of ANODE-MS II Model on F1 data.png")
+end
+
+loss_plot(losses)
+
+function average_loss_plot(df, title)
+    row_means = mean.(eachrow(df))
+    row_stds = std.(eachrow(df))
+    p = Plots.plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title=title, xlabel="Iteration", ylabel="Average Loss", legend=:bottomright, yscale=:log10)
+    display(p)
+    #Plots.savefig(p, title * ".png")
+end
+
+average_loss_plot(losses_df, "Average Loss Evolution of ANODE-MS II Model")
