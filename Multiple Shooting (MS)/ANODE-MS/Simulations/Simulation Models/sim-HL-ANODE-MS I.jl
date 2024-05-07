@@ -40,7 +40,7 @@ state = 2
 fulltraj_losses = Float64[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
-iters = 2
+iters = 10
 
 @time begin
     for i in 1:iters
@@ -75,7 +75,7 @@ iters = 2
 
         # Construct ODE Problem
         augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
-        params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+        params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
         prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
         function group_x(X::Vector, groupsize, predictsize)
@@ -141,7 +141,7 @@ iters = 2
         res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
         losses_df = DataFrame(loss = losses)
-        CSV.write("sim-HL-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("Results/HL/Loss Data/Losses $i.csv", losses_df, writeheader = false)
         
         full_traj = predict_final(res_ms.u)
         full_traj_loss = final_loss(res_ms.u)
@@ -151,7 +151,7 @@ iters = 2
             plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
             plot!(tp, real, label = "Training Data")
             plot!(legend=:topright)
-            savefig("sim-HL-ANODE-MS/Plots/Simulation $i.png")
+            savefig("Results/HL/Plots/Simulation $i.png")
         end
 
         plot_results(t_train, t, X_train, full_traj)

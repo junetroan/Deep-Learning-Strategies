@@ -74,8 +74,8 @@ iters = 2
         nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
         # Construct ODE Problem
-        augmented_u0 = vcat(X_train[1], randn(rng3, Float63, state - 1))
-        params = ComponentVector{Float63}(vector_field_model = p, initial_condition_model = p0)
+        augmented_u0 = vcat(X_train[1], randn(rng3,  state - 1))
+        params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
         prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
         function group_x(X::Vector, groupsize, predictsize)
@@ -123,7 +123,7 @@ iters = 2
             prediction_error
         end
 
-        losses = Float63[]
+        losses = Float64[]
 
         callback = function (θ, l)
 
