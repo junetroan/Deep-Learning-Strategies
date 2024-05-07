@@ -195,7 +195,7 @@ losses_df = DataFrame(losses = losses)
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
-    plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(t, pred[1,:], label = "Training Prediction", title="Trained MNODE-MS Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     scatter!(t, real, label = "Training Data")
     plot!(legend=:topright)
     #savefig("sim-F1-PEM/Plots/Simulation $i.png")
@@ -229,6 +229,8 @@ soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, r
 t1 = t_train |> collect
 t3 = t_test |> collect
 
+test_loss = X_test - soln_nn[1,:]
+total_test_loss = sum(abs, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of PEM Model", xlabel = "Time", ylabel = "Population")
@@ -237,7 +239,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/HL/PEM HL Training and Testing.png")
+    savefig("Results/HL/Training and testing of NPEM Model on Hare and Lynx data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
