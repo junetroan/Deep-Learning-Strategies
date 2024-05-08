@@ -37,7 +37,7 @@ function average_loss_plot(df, title)
     row_means = mean.(eachrow(df))
     row_stds = std.(eachrow(df))
     p = Plots.plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title=title, xlabel="Iteration", ylabel="Average Loss", legend=:bottomright, yscale=:log10)
-    #display(p)
+    display(p)
     #Plots.savefig(p, title * ".png")
 end
 
@@ -46,9 +46,9 @@ end
 #folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
 #folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
 
-folder_path_ANODE = "/Users/junetroan/Desktop/Results/ANODE-MS I/Loss Data"
-folder_path_NODE = "/Users/junetroan/Desktop/HL_modifiedMS/Loss Data"
-folder_path_PEM = "/Users/junetroan/Desktop/HL NPEM Loss Data/Loss Data"
+folder_path_ANODE = "/Users/junetroan/Desktop/ANODE-MS HL/Loss Data HL"
+folder_path_NODE = "/Users/junetroan/Desktop/MNODE-MS HL/Loss Data"
+folder_path_PEM = "/Users/junetroan/Desktop/NPEM HL/Loss Data"
 
 # Data reading
 df_ANODE = read_data(folder_path_ANODE)
@@ -99,18 +99,18 @@ function compare(df1, df2)
     #p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10, size=(800,600))
     #plot!(p3, 1:nrow(df2), row_means_2, ribbon = log_stds_2, label="PEM")
     
-    #Plots.savefig(p, "Results/LV/Comparison ANODE-MS vs. NPEM.png")
-    #Plots.savefig(p3, "Results/LV/Comparison ANODE-MS vs. NPEM (Log Scale).png")
+    #Plots.savefig(p, "Results/HL/Comparison ANODE-MS vs. NPEM.png")
+    #Plots.savefig(p3, "Results/HL/Comparison ANODE-MS vs. NPEM (Log Scale).png")
     
-    #Plots.savefig(p, "Results/LV/Comparison ANODE-MS vs. MNODE-MS.png")
-    #Plots.savefig(p3, "Results/LV/Comparison ANODE-MS vs. MNODE-MS (Log Scale).png")
+    #Plots.savefig(p, "Results/HL/Comparison ANODE-MS vs. MNODE-MS.png")
+    #Plots.savefig(p3, "Results/HL/Comparison ANODE-MS vs. MNODE-MS (Log Scale).png")
 
-    #Plots.savefig(p, "Results/LV/Comparison MNODE-MS vs. NPEM.png")
-    #Plots.savefig(p3, "Results/LV/Comparison MNODE-MS vs. NPEM (Log Scale).png")
+    #Plots.savefig(p, "Results/HL/Comparison MNODE-MS vs. NPEM.png")
+    Plots.savefig(p3, "Results/HL/Comparison MNODE-MS vs. NPEM (Log Scale).png")
 end
 
-compare(df_ANODE, df_PEM)
-compare(df_ANODE, df_NODE)
+#compare(df_ANODE, df_PEM)
+#compare(df_ANODE, df_NODE)
 compare(df_NODE, df_PEM)
 
 
