@@ -46,7 +46,7 @@ end
 #folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
 #folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
 
-folder_path_ANODE = "/Users/junetroan/Desktop/ANODE-MS HL/Loss Data HL"
+folder_path_ANODE = "/Users/junetroan/Desktop/ANODE-MS LV/Loss Data"
 folder_path_NODE = "/Users/junetroan/Desktop/MNODE-MS HL/Loss Data"
 folder_path_PEM = "/Users/junetroan/Desktop/NPEM HL/Loss Data"
 
