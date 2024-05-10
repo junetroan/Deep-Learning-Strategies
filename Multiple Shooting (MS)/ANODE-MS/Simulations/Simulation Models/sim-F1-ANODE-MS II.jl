@@ -8,9 +8,10 @@ using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 gr()
 
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - LEC Spain 2023 Qualifying.csv"
-data_frame = CSV.read(data_path, DataFrame, header = true)
-data = data_frame[:,2]
+# Collecting Data
+data_path = "/Users/junetroan/Desktop/Master Code/Deep-Learning-Strategies/Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - LEC Spain 2023 Qualifying.csv"
+all_data = CSV.read(data_path, DataFrame, header = true)
+data = all_data[:, 2]
 
 #Train/test Splits
 split_ration = 0.25
@@ -18,24 +19,33 @@ train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
 # Data Cleaning and Normalization
-train_data = convert(Vector{Float32}, train[:,1])
-test_data = convert(Vector{Float32}, test[:,1])
+t = 0.0:1.0:581
+speed = data[:,1]
 
-transformer = fit(ZScoreTransform, speed)
+train_data = convert(Vector{Float64}, train[:,1])
+test_data = convert(Vector{Float64}, test[:,1])
+
+transformer = fit(ZScoreTransform, train_data)
 X_train = StatsBase.transform(transformer, train_data)
+
+plot(X_train)
+
+
 X_test = StatsBase.transform(transformer, test_data)
-t_test = convert(Vector{Float32}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
-t_train = convert(Vector{Float32}, collect(1:Int(round(split_ration*size(data, 1)))))
+t_test = convert(Vector{Float64}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
+t_train = convert(Vector{Float64}, collect(1:Int(round(split_ration*size(data, 1)))))
 tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
+
+datasize = size(X_train, 1)
 # Define the experimental parameter
 rng = StableRNG(1111)
 groupsize = 5
 predsize = 5
 state = 2
 
-fulltraj_losses = Float32[]
+fulltraj_losses = Float64[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
 i = 1
@@ -67,8 +77,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
-params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
+augmented_u0 = vcat(X_train[1], randn(rng3, Float64, state - 1))
+params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
 function group_x(X::Vector, groupsize, predictsize)
@@ -90,7 +100,7 @@ function predict(θ)
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
+    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-6, reltol = 1e-6, 
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
@@ -98,14 +108,14 @@ function loss(θ)
     X̂ = predict(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
     prediction_error = mean(abs2, targets .- X̂[1,:,:])
-    prediction_error + continuity*10f0
+    prediction_error + continuity*10.0
 end
 
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
     prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all) # no longer updates u0 nn
-    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
+    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, 
     saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
     X̂
 end
@@ -116,7 +126,7 @@ function final_loss(θ)
     prediction_error
 end
 
-losses = Float32[]
+losses = Float64[]
 
 callback = function (θ, l)
 
@@ -131,7 +141,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 losses_df = DataFrame(loss = losses)
 #CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
@@ -145,14 +155,14 @@ optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
 
 full_traj2 = predict_final(res_final.u)
-actual_loss = Xₙ[1,:] - full_traj2[1,:]
+actual_loss = X_train - full_traj2[1,:]
 total_loss = abs(sum(actual_loss))
 
 function plot_results(tp, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model II predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
-    #savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
+    savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, X_train, full_traj2)
@@ -161,8 +171,8 @@ test_tspan = (t_test[1], t_test[end])
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
-prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
-saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
+saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 #t1 = t_train |> collect
 #t3 = t_test|> collect
 
@@ -170,13 +180,13 @@ test_loss = X_test - prediction_new[1, :]
 total_test_loss = mean(abs2, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
+    savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj2, prediction_new)

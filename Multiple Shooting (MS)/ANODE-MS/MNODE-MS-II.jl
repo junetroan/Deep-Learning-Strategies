@@ -1,6 +1,5 @@
 # Created on Monday 8th of April by collaboration of Vinicius Santana Viena and June Mari Berge Trøan
 
-
 # GENERATING DATA TO TEST
 using DifferentialEquations
 using SciMLSensitivity
@@ -37,6 +36,7 @@ groupsize = 5
 predsize = 5
 tsteps = 0.25
 
+ranges = group_ranges(datasize, group_size)
 u0 = Float64(x[first(1:5)])
 u0_init = [[x[first(rg)]; fill(mean(x[rg]), state - 1)] for rg in ranges] 
 u0_init = mapreduce(permutedims, vcat, u0_init)
@@ -46,7 +46,7 @@ U = Lux.Chain(Lux.Dense(state, 30, tanh),
               Lux.Dense(30, state))
               
 p, st = Lux.setup(rng, U)
-params = ComponentVector{Float64}(θ = p, u0_init = u0)
+params = ComponentVector{Float64}(θ = p, u0_init = u0_init)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, params)
 
@@ -127,13 +127,13 @@ end
 ls, ps = loss_single_shooting(params.θ)
 
 continuity_term = 10.0
-#pars = ComponentVector{Float64}(θ = p, u0_init = u0_init)
+
 ls, ps = multiple_shoot_mod(params, x, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size; continuity_term)
 
 #lossses, preds = predict_single_shooting(params.p)
 
 # Modified multiple_shoot method 
-multiple_shoot_mod(pars, x, tsteps, prob_node, loss_function,
+multiple_shoot_mod(params, x, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size;
     continuity_term)
 
@@ -143,10 +143,10 @@ function loss_multiple_shoot(p)
         continuity_term)[1]
 end
 
-test_multiple_shoot = loss_multiple_shoot(pars)
+test_multiple_shoot = loss_multiple_shoot(params)
 #test_multiple_shoot[1]
 
-loss_single_shooting(pars.θ)[1]
+loss_single_shooting(params.θ)[1]
 
 losses = Float64[]
 

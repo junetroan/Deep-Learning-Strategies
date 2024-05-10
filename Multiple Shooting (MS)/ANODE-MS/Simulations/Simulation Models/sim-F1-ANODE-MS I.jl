@@ -131,7 +131,7 @@ end
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
-res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
+@time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
 losses_df = DataFrame(loss = losses)
 #CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
@@ -141,7 +141,7 @@ full_traj_loss = final_loss(res_ms.u)
 push!(fulltraj_losses, full_traj_loss)
 
 function plot_results(tp, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
+    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
     savefig("Results/F1/Training ANODE-MS I Model on F1 data.png")
@@ -158,8 +158,11 @@ saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)
 #t1 = t_train |> collect
 #t3 = t_test|> collect
 
+test_loss = X_test - prediction_new[1, :]
+total_test_loss = mean(abs2, test_loss)
+
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS Model", xlabel = "Time", ylabel = "Speed")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS I Model", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
