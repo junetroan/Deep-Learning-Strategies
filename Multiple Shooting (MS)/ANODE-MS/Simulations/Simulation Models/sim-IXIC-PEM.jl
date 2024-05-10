@@ -68,6 +68,7 @@ params = ComponentVector{Float64}(vector_field_model = p, K = K)
 prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0)
 soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0))
 
+
 function prediction(p)
     _prob = remake(prob_nn, u0 = u0, p = p)
     sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))
@@ -97,6 +98,7 @@ end
 
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> predloss(x), adtype)
+
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), maxiters = 5000, verbose = false, callback=callback)
 
@@ -109,7 +111,7 @@ full_traj = prediction(res_ms.u)
 function plot_results(t, real, pred)
     plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
     plot!(t, real, label = "Training Data")
-    plot!(legend=:topright)
+    plot!(legend=:topleft)
     savefig("Results/IXIC/Training NPEM Model on IXIC data.png")
 end
 

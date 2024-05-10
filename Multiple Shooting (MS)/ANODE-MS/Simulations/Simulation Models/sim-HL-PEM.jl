@@ -46,7 +46,7 @@ iters = 2
 state = 2
 
 #################################################################################################################################################
-
+#=
 @time begin
     for i in 1:iters
 
@@ -128,7 +128,7 @@ state = 2
     end
 end
 
-
+=#
 #################################################################################################################################################
 
 i = 2
@@ -197,7 +197,7 @@ full_traj = prediction(res_ms.u)
 function plot_results(t, real, pred)
     plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(t, real, label = "Training Data")
-    plot!(legend=:topright)
+    plot!(legend=:topleft)
     savefig("Results/HL/Training NPEM Model on Hare and Lynx data.png")
 end
 

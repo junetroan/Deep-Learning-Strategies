@@ -41,7 +41,7 @@ fulltraj_losses = Float64[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
 iters = 2
-
+#=
 @time begin
     for i in 1:iters
         
@@ -173,7 +173,7 @@ iters = 2
     end
 end
 
-#=
+=#
 
 i = 1
 
@@ -287,7 +287,7 @@ full_traj2 = predict_final(res_final.u)
 function plot_results(tp,tr, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(tp, real, label = "Training Data")
-    plot!(legend=:topright)
+    plot!(legend=:topleft)
     savefig("Results/HL/Training ANODE-MS II Model on Hare data.png")
 end
 

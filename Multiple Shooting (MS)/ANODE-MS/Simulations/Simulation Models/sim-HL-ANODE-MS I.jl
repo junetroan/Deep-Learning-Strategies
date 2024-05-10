@@ -41,7 +41,7 @@ fulltraj_losses = Float64[]
 
 # NUMBER OF ITERATIONS OF THE SIMULATION
 iters = 10
-
+#=
 @time begin
     for i in 1:iters
         
@@ -163,8 +163,7 @@ iters = 10
 
     end
 end
-
-#=
+=#
 i = 1
 
 #Generating random numbers
@@ -202,7 +201,7 @@ function group_x(X::Vector, groupsize, predictsize)
     parent = [X[i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(X) - max(groupsize, predictsize) + 1]
     parent = reduce(hcat, parent)
     targets = parent[1:groupsize,:]
-    augmented_u0 = vcat(X_train[1], randn(rng3, Float32, state - 1))
+    nn_predictors = parent[1:predictsize,:]
     u0 = parent[1, :]
     return parent, targets, nn_predictors, u0
 end
@@ -270,7 +269,7 @@ push!(fulltraj_losses, full_traj_loss)
 function plot_results(tp,tr, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(tp, real, label = "Training Data")
-    plot!(legend=:topright)
+    plot!(legend=:topleft)
     savefig("Results/HL/Training ANODE-MS I Model on Hare and Lynx data.png")
 end
 
