@@ -58,8 +58,8 @@ s_train_interpolation = LinearInterpolation(s_train, t_train)
 th_train_interpolation = LinearInterpolation(th_train, t_train)
 b_train_interpolation = LinearInterpolation(b_train, t_train)
 
-y_train = [th_train b_train s_train]'
-y_test = [th_test b_test s_test]'
+y_train = [s_train th_train b_train]'
+y_test = [s_test th_test b_test]'
 
 # Define the experimental parameter
 unknown_states = 1
@@ -83,8 +83,8 @@ p, st = Lux.setup(rng1, U)
 U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  2))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
-th = LinearInterpolation(th_train, t_train)
-br = ConstantInterpolation(b_train, t_train)
+throttle = LinearInterpolation(th_train, t_train)
+brake = ConstantInterpolation(b_train, t_train)
 
 #=
 # Define the hybrid model
@@ -96,13 +96,14 @@ function ude_dynamics!(du, u, p, t)
 end
 =#
 function ude_dynamics!(du, u, p, t)
-    # Extract input variables from `u`
-    t = u[2]
-    b = u[3]
+
     s = u[1]
     h = u[4]
 
-    inputs = [s;t;b;h]
+    th = throttle(t)
+    br = brake(t)
+
+    inputs = [s;h;th;br]
 
     # Evaluate neural network to get derivatives
     derivatives = U(inputs, p.vector_field_model, st)[1]
@@ -221,17 +222,23 @@ end
 first, second, third = tester()
 u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
 =#
+plotly()
+plot(s_train, label = "Speed")
+plot(th_train, label = "Throttle")
+plot(b_train, label = "Brake")
+
+discont = [66, 68, 69,85]
 
 function tpredictor(θ)
     function prob_func(prob, i, repeat)
-        u0_nn_third = [U0_nn(third_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(third_series, 2)]
+        u0_nn_third = [U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(first_series, 2)]
         u0_all = vcat(u0_vec[i,:], u0_nn_third[i])
         remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg))
+    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg, tstops = discont))
 end
 
 #=
@@ -260,8 +267,6 @@ all_preds = [pred[1,:,:] pred[2,:,:] pred[3,:,:]]'
 
 pred[2:end,:,:] .- ps
 =#
-
-pred = tpredictor(params)
 
 function loss(θ)
     X̂ = tpredictor(θ)
