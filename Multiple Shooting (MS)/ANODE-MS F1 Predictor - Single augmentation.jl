@@ -277,7 +277,6 @@ end
 
 lossezzz = loss(params)
 #=
-
 first_series[:, 1]
 U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
 pred_u0_nn_first = U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
@@ -288,13 +287,13 @@ u0_1 = vcat(u0_vec[1], pred_u0_nn)
 =#
 
 function predict_final(θ)
-    u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1] 
-    u0_all = vcat(u0_vec[1,:], u0_nn_third)
+    u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
+    u0_all = vcat(u0_vec[1,:], u0_nn_first)
     prob_nn_updated = remake(prob_nn, p = θ, u0 = u0_all)
 
    # no longer updates u0 nn
     X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
-    saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+    saveat = t_train, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)),tstops = discont))
     X̂
 end
 
@@ -302,13 +301,14 @@ final_preds = predict_final(params) #INFINITY?????
 
 function final_loss(θ)
     X̂ = predict_final(θ)
-    prediction_error = mean(abs2, y_train .- X̂[2:end, :])
+    final_pred = X̂[[1, 3, 4], :]
+    prediction_error = mean(abs2, y_train .- final_pred)
     prediction_error
 end
 
 final_loss(params)
 
-losses = Float32[]
+ losses = Float32[]
 
 callback = function (θ, l)
     push!(losses, final_loss(θ))
@@ -319,7 +319,7 @@ callback = function (θ, l)
 end
 
 adtype = Optimization.AutoZygote()  
-optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
+optf = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000) # RUNS ONLY FROM INFINITY....
 
