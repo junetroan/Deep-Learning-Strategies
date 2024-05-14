@@ -36,6 +36,12 @@ groupsize = 5
 predsize = 5
 tsteps = 0.25
 
+function group_ranges(datasize::Integer, groupsize::Integer)
+    2 <= groupsize <= datasize || throw(DomainError(groupsize,
+        "datasize must be positive and groupsize must to be within [2, datasize]"))
+    return [i:min(datasize, i + groupsize - 1) for i in 1:(groupsize - 1):(datasize - 1)]
+end
+
 ranges = group_ranges(datasize, group_size)
 u0 = Float64(x[first(1:5)])
 u0_init = [[x[first(rg)]; fill(mean(x[rg]), state - 1)] for rg in ranges] 
@@ -46,9 +52,9 @@ U = Lux.Chain(Lux.Dense(state, 30, tanh),
               Lux.Dense(30, state))
               
 p, st = Lux.setup(rng, U)
-params = ComponentVector{Float64}(θ = p, u0_init = u0_init)
+params = ComponentVector{Float64}(vector_field_model = p)
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = tsteps, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
-prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, params)
+prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
 
 datasize = size(x, 1)
 tspan = (0.0, 10.0) # Original (0.0f0, 10.0f0
@@ -65,15 +71,6 @@ state
 
 ##############################################################################################################################################################
 
-function group_ranges(datasize::Integer, groupsize::Integer)
-    2 <= groupsize <= datasize || throw(DomainError(groupsize,
-        "datasize must be positive and groupsize must to be within [2, datasize]"))
-    return [i:min(datasize, i + groupsize - 1) for i in 1:(groupsize - 1):(datasize - 1)]
-end
-
-ranges = group_ranges(datasize, group_size)
-
-
 function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
     continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
     continuity_term::Real = 100, kwargs...) where {F, C}
@@ -86,7 +83,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
 
     ranges = group_ranges(datasize, group_size)
 
-    sols = [solve(remake(prob_node; θ = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
+    sols = [solve(remake(prob_node; p = p.θ, tspan = (tsteps[first(rg)], tsteps[last(rg)]),
         u0 = p.u0_init[index, :]),
         solver, saveat = tsteps[rg], sensealg = QuadratureAdjoint(autojacvec = ReverseDiffVJP(true)))
         for (index, rg) in enumerate(ranges)]
@@ -116,7 +113,7 @@ end
 loss_function(data, pred) = sum(abs2, data - pred)
 continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
 predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
-tester_pred_ss = predict_single_shooting(params.θ)
+tester_pred_ss = predict_single_shooting(params.vector_field_model)
 
 function loss_single_shooting(p)
     pred = predict_single_shooting(p)
@@ -124,10 +121,10 @@ function loss_single_shooting(p)
     return l, pred
 end
 
-ls, ps = loss_single_shooting(params.θ)
+ls, ps = loss_single_shooting(params.vector_field_model)
 
 continuity_term = 10.0
-
+params = ComponentVector{Float64}(θ = p, u0_init = u0_init)
 ls, ps = multiple_shoot_mod(params, x, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), group_size; continuity_term)
 
 #lossses, preds = predict_single_shooting(params.p)
@@ -161,7 +158,7 @@ end
 
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, pars)
+optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback)
 
 loss_ms, _ = loss_single_shooting(res_ms.u.θ)

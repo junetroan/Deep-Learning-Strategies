@@ -104,10 +104,10 @@ CSV.write("sim-F1-PEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 full_traj = prediction(res_ms.u)
 
 function plot_results(t, real, pred)
-    plot(t, pred[1,:], label = "Training Prediction", title="PEM Model on F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("sim-F1-PEM/Plots/Simulation $i.png")
+    savefig("Results/F1/Training NPEM Model on F1 data.png")
 end
 
 plot_results(tsteps, X_train, full_traj)
@@ -135,7 +135,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/F1/PEM F1 Training and Testing.png")
+    savefig("Results/F1/Training and testing of NPEM Model on F1 data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
