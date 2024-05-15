@@ -308,7 +308,7 @@ end
 
 final_loss(params)
 
- losses = Float32[]
+losses = Float32[]
 
 callback = function (θ, l)
     push!(losses, final_loss(θ))
