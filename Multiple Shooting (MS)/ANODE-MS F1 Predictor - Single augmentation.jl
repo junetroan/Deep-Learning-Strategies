@@ -128,72 +128,6 @@ augmented_u0 = vcat(y_train[1,1], rands)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
-#=
-for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1
-    println(i)
-    println(i + max(groupsize, predsize) - 1)
-end
-
-parent = [y_train[:,i: i + max(groupsize, predsize) - 1] for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1]
-parent[1]
-parent[2]
-parent[10]
-parent[101]
-
-parent[1][1,:]
-parent[101][1,:]
-parent[101]
-
-parent[1:groupsize,:]
-
-parent[1][1,:]
-
-parent[:][1,:]
-test = parent[:][1,:]
-
-u0 = parent[:][1,1]
-
-parent[1][1,1]
-parent[2][1,1]
-parent[3][1,1]
-parent[4][1,1]
-parent[101][1,1]
-u0_nn11 = U0_nn(first[:,1], params.initial_condition_model, st0)[1]
-u0_nn12 = U0_nn(first[:,2], params.initial_condition_model, st0)[1]
-u0_nn1101 = U0_nn(first[:,101], params.initial_condition_model, st0)[1]
-u0_nn21 = U0_nn(second[:,1], params.initial_condition_model, st0)[1]
-u0_nn2101 = U0_nn(second[:,101], params.initial_condition_model, st0)[1]
-
-u0vec1 = u0_vec[1][1,1]
-u0vec2 = u0_vec[1][2,1]
-u0vec3 = u0_vec[1][3,1]
-
-u0all = vcat(u0vec1, u0_nn11)
-
-testerrr = remake(prob_nn, u0 = u0all, tspan = (t_train[1], t_train[groupsize]))
-
-u0_vec = [x[row, 1] for x in parent for row in 1:3]
-
-first_elements = [x[1, 1] for x in parent]
-
-[x[:,1] for x in parent]
-
-
-targets = vcat([parent[i][j, :] for i in 1:101 for j in 1:3]...)
-
-
-y_train
-pt = [y_train[:,i: i + max(groupsize, predsize) - 1] for i in 1:(groupsize-1):length(t_train) - max(groupsize, predsize) + 1]
-ps = cat(pt..., dims=3)
-
-ft =  hcat([pt[i][1, :] for i in 1:101]...)
-u0 = ft[1,:]
-targs = 
-# current targets: 5×303 Matrix{Float32}
-# current parents: 101-element Vector{Matrix{Float32}}:
-# pred: 4×5×101 Array{Float32, 3}:
-=#
-
 # with 0.25: 36
 # with 0.75: 108
 
@@ -208,28 +142,7 @@ function group_x(xdim, y , groupsize, predictsize)
 end
 
 pas, first_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
-#=
-function tester()
-    u0_nn_first = []
-    u0_nn_second = []
-    u0_nn_third = []
-    for j in 1:size(first_series, 2)
-        u0_nn = U0_nn(first_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_first, u0_nn)
-                
-        u0_nn = U0_nn(second_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_second, u0_nn)
-                
-        u0_nn = U0_nn(third_series[:, j], params.initial_condition_model, st0)[1]
-        push!(u0_nn_third, u0_nn)
-    end
-    return u0_nn_first, u0_nn_second, u0_nn_third
-end
 
-
-first, second, third = tester()
-u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
-=#
 #plotly()
 plot(s_train, label = "Speed")
 #plot(th_train, label = "Throttle")
@@ -253,32 +166,7 @@ function tpredictor(θ)
 end
 
 tester = tpredictor(params)
-#=
-function predictor(θ)
-    function prob_func(prob, i, repeat)
-        u0_nn_first = []
 
-        for j in 1:size(first_series, 2)
-            u0_nn = U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1]
-            push!(u0_nn_first, u0_nn)
-            
-        end
-
-        u0_all = vcat(u0_vec[i], u0_nn_first[i], u0_nn_second[i], u0_nn_third[i])
-        remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
-    end
-    sensealg = ReverseDiffAdjoint()
-    shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
-    Array(solve(shooting_problem, verbose = false,  AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg))
-end
-=#
-#=
-pred = predictor(params)
-all_preds = [pred[1,:,:] pred[2,:,:] pred[3,:,:]]'
-
-pred[2:end,:,:] .- ps
-=#
 
 function loss(θ)
     X̂ = tpredictor(θ)
@@ -288,15 +176,7 @@ function loss(θ)
 end
 
 lossezzz = loss(params)
-#=
-first_series[:, 1]
-U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
-pred_u0_nn_first = U0_nn(first_series[:, 1], params.initial_condition_model, st0)[1]
-pred_u0_nn_second = U0_nn(second_series[:, 1], params.initial_condition_model, st0)[1]
-pred_u0_nn_third = U0_nn(third_series[:, 1], params.initial_condition_model, st0)[1]
-pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
-u0_1 = vcat(u0_vec[1], pred_u0_nn)
-=#
+
 
 function predict_final(θ)
     u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
