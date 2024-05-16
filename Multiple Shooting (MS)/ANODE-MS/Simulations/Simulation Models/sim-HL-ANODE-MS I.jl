@@ -14,7 +14,7 @@ data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
-split_ration = 0.25
+split_ration = 0.75
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
@@ -270,7 +270,7 @@ function plot_results(tp,tr, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/HL/Training ANODE-MS I Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training ANODE-MS I Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(t_train, t, X_train, full_traj)
@@ -305,7 +305,7 @@ function plot_results(real_train, real_test, pred, pred_new)
     scatter!(t[23:end], real_test, label = "Test Data")
     vline!([t3[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/HL/Training and testing of ANODE-MS I Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training and testing of ANODE-MS I Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(X_train, X_test, full_traj, prediction_new)

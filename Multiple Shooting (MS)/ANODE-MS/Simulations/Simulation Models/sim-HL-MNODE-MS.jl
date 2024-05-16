@@ -17,7 +17,7 @@ data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
-split_ration = 0.25
+split_ration = 0.75
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
@@ -348,7 +348,7 @@ function plot_results(real, pred, t)
     plot(t, pred[1,:], label = "Training Prediction", title="Trained MNODE-MS Model predicting Hare data", xlabel="Time", ylabel="Population")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/HL/Training MNODE-MS Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training MNODE-MS Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(X_train, preds, t_train)
@@ -379,7 +379,7 @@ function plot_results(real_train, real_test, train_pred, test_pred)
     scatter!(t3, real_test, label = "Test Data")
     vline!([t3[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/HL/Training and testing of MNODE-MS Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training and testing of MNODE-MS Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(X_train, X_test, preds, prediction_new)

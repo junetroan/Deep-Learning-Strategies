@@ -20,7 +20,7 @@ data_path = "Multiple Shooting (MS)/ANODE-MS/Data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame, header = true)
 
 #Train/test Splits
-split_ration = 0.25
+split_ration = 0.75
 train = data[1:Int(round(split_ration*size(data, 1))), :]
 test = data[Int(round(split_ration*size(data, 1))):end, :]
 
@@ -168,6 +168,7 @@ end
                 
 predloss(params)
                 
+
 losses = Float64[]
 K = []
 
@@ -198,7 +199,7 @@ function plot_results(t, real, pred)
     plot(t, pred[1,:], label = "Training Prediction", title="Trained NPEM Model predicting Hare data", xlabel = "Time", ylabel = "Population")
     plot!(t, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/HL/Training NPEM Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training NPEM Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(tsteps, X_train, full_traj)
@@ -239,7 +240,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/HL/Training and testing of NPEM Model on Hare and Lynx data.png")
+    savefig("Results/HL/Training and testing of NPEM Model on Hare and Lynx data - 75.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)

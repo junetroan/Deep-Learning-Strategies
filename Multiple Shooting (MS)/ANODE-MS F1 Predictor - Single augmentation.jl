@@ -1,12 +1,14 @@
 #ANODE-MS F1 Predictor
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
-using SciMLSensitivity
+using SciMLSensitivit
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 using DataInterpolations
-gr()
+plotly()
+Plotly.Kaleido
+
 
 data_path = "Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - VER Spain 2023 Qualifying.csv"
 data = CSV.read(data_path, DataFrame, header = true)
@@ -67,6 +69,7 @@ known_states  = 3
 groupsize = 5
 predsize = 5
 obsgrid = 5:5:length(t_train)
+
 state = unknown_states + known_states
 i = 1000
 rng1 = StableRNG(i)
@@ -80,7 +83,7 @@ U = Lux.Chain(Lux.Dense(unknown_states+known_states, 30, tanh), Lux.Dense(30, 2)
 p, st = Lux.setup(rng1, U)
 
 # Simple NN to predict initial points for use in multiple-shooting training
-U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  2))
+U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  1))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
 throttle = LinearInterpolation(th_train, t_train)
@@ -98,7 +101,7 @@ end
 function ude_dynamics!(du, u, p, t)
 
     s = u[1]
-    h = u[4]
+    h = u[2]
 
     th = throttle(t)
     br = brake(t)
@@ -117,8 +120,8 @@ end
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
-rands = randn(rng3, Float32, length(s_train), unknown_states)'
-augmented_u0 = vcat(rands, y_train)
+rands = randn(rng3, Float32, unknown_states)
+augmented_u0 = vcat(y_train[1,1], rands)
 params = ComponentVector{Float32}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t_train)
 
@@ -190,12 +193,12 @@ targs =
 
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
-    firsts =  hcat([parent[i][1, :] for i in 1:36]...) # Throttle
-    seconds = hcat([parent[i][2, :] for i in 1:36]...) # Brake
-    thirds = hcat([parent[i][3, :] for i in 1:36]...) # Speed
+    firsts =  hcat([parent[i][1, :] for i in 1:36]...) # Speed
+    seconds = hcat([parent[i][2, :] for i in 1:36]...) # Throttle
+    thirds = hcat([parent[i][3, :] for i in 1:36]...) # Brake
     targets = reshape(vcat([parent[i][j, :] for i in 1:36 for j in 1:3]...), groupsize, 108)
     parent = cat(parent..., dims=3)
-    u0 = hcat(firsts[1,:], thirds[1,:])
+    u0 = firsts[1,:]
     return parent, targets, firsts, seconds, thirds, u0
 end
 
@@ -231,9 +234,9 @@ discont = [66, 68, 69,85]
 
 function tpredictor(θ)
     function prob_func(prob, i, repeat)
-        u0_nn_third = [U0_nn(first_series[:, j], θ.initial_condition_model, st0)[1] for j in 1:size(first_series, 2)]
-        u0_all = vcat(u0_vec[i,:], u0_nn_third[i])
-        remake(prob, u0 = u0_all, tspan = (t_train[1], t_train[groupsize]))
+        u0_nn_first = U0_nn(first_series[:, i], θ.initial_condition_model, st0)[1]
+        u0_all = vcat(u0_vec[i], u0_nn_first)
+        remake(prob, u0 = u0_all, tspan = (t[1], t[groupsize]))
     end
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
@@ -241,6 +244,7 @@ function tpredictor(θ)
     p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg, tstops = discont))
 end
 
+tester = tpredictor(params)
 #=
 function predictor(θ)
     function prob_func(prob, i, repeat)
@@ -288,7 +292,7 @@ u0_1 = vcat(u0_vec[1], pred_u0_nn)
 
 function predict_final(θ)
     u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
-    u0_all = vcat(u0_vec[1,:], u0_nn_first)
+    u0_all = vcat(u0_vec[1], u0_nn_first)
     prob_nn_updated = remake(prob_nn, p = θ, u0 = u0_all)
 
    # no longer updates u0 nn
@@ -301,8 +305,7 @@ final_preds = predict_final(params) #INFINITY?????
 
 function final_loss(θ)
     X̂ = predict_final(θ)
-    final_pred = X̂[[1, 3, 4], :]
-    prediction_error = mean(abs2, y_train .- final_pred)
+    prediction_error = mean(abs2, y_train[1,:] .- X̂[1,:])
     prediction_error
 end
 
@@ -326,7 +329,7 @@ optprob = Optimization.OptimizationProblem(optf, params)
 #WORKING UNTIL HERE 💕🤓🥺
 
 losses_df = DataFrame(loss = losses)
-CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 07.05.24.csv", losses_df, writeheader = false)
+CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 16.05.24.csv", losses_df, writeheader = false)
 
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
@@ -336,15 +339,18 @@ optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
 
 full_traj2 = predict_final(res_final.u)
-actual_loss = Xₙ[1,:] - full_traj2[1,:]
+actual_loss = y_train[1,:] - full_traj2[1,:]
+plot(full_traj2[1,:], label = "Prediction")
+plot!(y_train[1,:], label = "Data")
 total_loss = abs(sum(actual_loss))
 
 
 function plot_training(tp, real, pred)
     plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
+
     plot!(legend=:topright)
-    savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
+    #savefig("Results/F1/Training Single Augmentation on F1 data.png")
 end
 
 plot_training(t_train, y_train[1,:], full_traj[2,:])
@@ -374,7 +380,7 @@ t3 = t_test # Check whether this starts at the end of the t_train
 function plot_results(t1, t3, pred, pred_new, real, sol_new)
     plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Prediction sof ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
     plot!(t3, pred_new[1,41:123], label = "Test Prediction")
-    scatter!(t1, real[1,:], label = "Training Data")
+    scatter!(t1, real[1,:], label = "Tr aining Data")
     scatter!(t3, sol_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
