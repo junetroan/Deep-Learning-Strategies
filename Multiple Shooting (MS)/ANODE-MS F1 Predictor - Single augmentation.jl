@@ -1,13 +1,16 @@
 #ANODE-MS F1 Predictor
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
-using SciMLSensitivit
+using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 using DataInterpolations
+using PlotlyKaleido
+# Set the backend for Plots to Plotly
+
+PlotlyKaleido.start()
 plotly()
-Plotly.Kaleido
 
 
 data_path = "Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - VER Spain 2023 Qualifying.csv"
@@ -19,21 +22,21 @@ speed = convert(Vector{Float32}, data[:,2])
 throttle = convert(Vector{Float32}, data[:,3])
 brake = convert(Vector{Float32}, data[:,4])
 
-split_ration = 0.25
+split_ratio = 0.75
 
-distance_train = distance[1:Int(round(split_ration*size(data, 1)))]
-distance_test = distance[Int(round(split_ration*size(data, 1))):end]
-speed_train = speed[1:Int(round(split_ration*size(data, 1)))]
-speed_test = speed[Int(round(split_ration*size(data, 1))):end]
-throttle_train = throttle[1:Int(round(split_ration*size(data, 1)))]
-throttle_test = throttle[Int(round(split_ration*size(data, 1))):end]
-brake_train = brake[1:Int(round(split_ration*size(data, 1)))]
-brake_test = brake[Int(round(split_ration*size(data, 1))):end]
+distance_train = distance[1:Int(round(split_ratio*size(data, 1)))]
+distance_test = distance[Int(round(split_ratio*size(data, 1))):end]
+speed_train = speed[1:Int(round(split_ratio*size(data, 1)))]
+speed_test = speed[Int(round(split_ratio*size(data, 1))):end]
+throttle_train = throttle[1:Int(round(split_ratio*size(data, 1)))]
+throttle_test = throttle[Int(round(split_ratio*size(data, 1))):end]
+brake_train = brake[1:Int(round(split_ratio*size(data, 1)))]
+brake_test = brake[Int(round(split_ratio*size(data, 1))):end]
 
 # Data Cleaning and Normalization
 t = Float32.(0.0:1.0:size(data, 1)-1)
-t_train = Float32.(t[1:Int(round(split_ration*size(data, 1)))])
-t_test = Float32.(t[Int(round(split_ration*size(data, 1))):end])
+t_train = Float32.(t[1:Int(round(split_ratio*size(data, 1)))])
+t_test = Float32.(t[Int(round(split_ratio*size(data, 1))):end])
 tspan_train = (t_train[1], t_train[end])
 tspan_test = (t_test[1], t_test[end])
 tsteps_train = range(tspan_train[1], tspan_train[2], length = length(distance_train))
@@ -86,8 +89,8 @@ p, st = Lux.setup(rng1, U)
 U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30,  1))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
-throttle = LinearInterpolation(th_train, t_train)
-brake = ConstantInterpolation(b_train, t_train)
+throttle_interpolation = LinearInterpolation(th_train, t_train, extrapolate = true)
+brake_interpolation = ConstantInterpolation(b_train, t_train, extrapolate = true)
 
 #=
 # Define the hybrid model
@@ -103,8 +106,8 @@ function ude_dynamics!(du, u, p, t)
     s = u[1]
     h = u[2]
 
-    th = throttle(t)
-    br = brake(t)
+    th = throttle_interpolation(t)
+    br = brake_interpolation(t)
 
     inputs = [s;h;th;br]
 
@@ -191,18 +194,20 @@ targs =
 # pred: 4×5×101 Array{Float32, 3}:
 =#
 
+# with 0.25: 36
+# with 0.75: 108
+
+# TODO: Make number of trajectories follow from parent to firsts
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
-    firsts =  hcat([parent[i][1, :] for i in 1:36]...) # Speed
-    seconds = hcat([parent[i][2, :] for i in 1:36]...) # Throttle
-    thirds = hcat([parent[i][3, :] for i in 1:36]...) # Brake
-    targets = reshape(vcat([parent[i][j, :] for i in 1:36 for j in 1:3]...), groupsize, 108)
+    #trajs = size(parent, 3)
+    firsts =  hcat([parent[i][1, :] for i in 1:108]...) # Speed
     parent = cat(parent..., dims=3)
     u0 = firsts[1,:]
-    return parent, targets, firsts, seconds, thirds, u0
+    return parent, firsts, u0
 end
 
-pas, targets, first_series, second_series, third_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
+pas, first_series, u0_vec = group_x(t_train, y_train, groupsize, predsize)
 #=
 function tester()
     u0_nn_first = []
@@ -225,13 +230,16 @@ end
 first, second, third = tester()
 u0_all = vcat(u0_vec[1], first[1], second[1], third[1])
 =#
-plotly()
+#plotly()
 plot(s_train, label = "Speed")
-plot(th_train, label = "Throttle")
-plot(b_train, label = "Brake")
+#plot(th_train, label = "Throttle")
+#plot(b_train, label = "Brake")
 
-discont = [66, 68, 69,85]
+plot(s_train, label = "Speed", title = "Training Data", xlabel = "Time", ylabel = "Speed")
+discont = [68, 89, 172, 199, 235, 254, 301, 316, 403, 429]
 
+#discont = [68, 89]
+#108
 function tpredictor(θ)
     function prob_func(prob, i, repeat)
         u0_nn_first = U0_nn(first_series[:, i], θ.initial_condition_model, st0)[1]
@@ -241,7 +249,7 @@ function tpredictor(θ)
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 36, sensealg = sensealg, tstops = discont))
+    p=θ, saveat = t_train, trajectories = 108 , sensealg = sensealg, tstops = discont))
 end
 
 tester = tpredictor(params)
@@ -334,6 +342,10 @@ CSV.write("Results/F1/Loss Data/ANODE-MS F1 Single Augmentation Loss - 16.05.24.
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
 
+plot(full_traj[1,:], label = "Prediction")
+plot!(brake_train, label = "Data")
+plot!(y_train[1,:], label = "Data")
+
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
@@ -345,48 +357,48 @@ plot!(y_train[1,:], label = "Data")
 total_loss = abs(sum(actual_loss))
 
 
+
 function plot_training(tp, real, pred)
     plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
+    plot!(legend=:bottomright)
+    #savefig("Results/F1/ANODE-MS II Single Augmentation on F1 data.png")
+end
 
+plot_training(t_train, y_train[1,:], full_traj2[1,:])
+
+
+######################################################################################
+# Testing
+y_train
+y_test 
+t_test
+tspan_test = (t_test[1], t_test[end])
+tsteps_test = range(tspan_test[1], tspan_test[2], length = length(y_test[1,:]))
+predicted_u0_nn = U0_nn(first_series[:, 1], res_final.u.initial_condition_model, st0)[1]
+u0_all = vcat(u0_vec[1], predicted_u0_nn)
+prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = tspan_test)
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
+saveat = 1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+t1 = t_train |> collect
+t3 = t_test |> collect
+t = t |> collect
+
+test_loss = y_test[1,:] - prediction_new[1,:]
+total_test_loss = sum(abs, test_loss)
+
+function plot_results(real_train, real_test, pred, pred_new)
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
+    plot!(t3, pred_new[1,:], label = "Test Prediction")
+    scatter!(t1, real_train, label = "Training Data")
+    scatter!(t3, real_test, label = "Test Data")
+    vline!([t3[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    #savefig("Results/F1/Training Single Augmentation on F1 data.png")
+    #savefig("Results/F1/Training and Testing of ANODE-MS II Model on F1 data.png")
 end
 
-plot_training(t_train, y_train[1,:], full_traj[2,:])
-
-function predict_test(θ)
-    pred_u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn_second = U0_nn(second_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn_third = U0_nn(third_series[:, 1], θ.initial_condition_model, st0)[1]
-    pred_u0_nn = vcat(pred_u0_nn_first, pred_u0_nn_second, pred_u0_nn_third)
-    u0_all = vcat(u0_vec[1], pred_u0_nn)
-    prob_nn_updated = remake(prob_nn, p=θ, u0=u0_all)
-
-    X̂ = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff=true)), abstol = 1f-6, reltol = 1f-6, 
-    saveat = t_test, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
-    X̂
-end
-
-##### Based on plot no need in testing, since training was unsuccessful.... 
-test_pred = predict_test(res_ms.u)
-test = test_pred[2,:]
-test_loss = y_test[1,:] - test
-test_total_loss = abs(sum(test_loss))
-
-t1 = t_train
-t3 = t_test # Check whether this starts at the end of the t_train
-
-function plot_results(t1, t3, pred, pred_new, real, sol_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Prediction sof ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
-    plot!(t3, pred_new[1,41:123], label = "Test Prediction")
-    scatter!(t1, real[1,:], label = "Tr aining Data")
-    scatter!(t3, sol_new[1,41:123], label = "Test Data")
-    vline!([t1[41]], label = "Training/Test Split")
-    plot!(legend=:topright)
-    savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
-end
-
+plot_results(y_train[1,:], y_test[1,:], full_traj2, prediction_new)
 
 function loss_plot(losses)
     p = plot(losses, label = "Loss", title = "Loss of ANODE-MS Model", xlabel = "Iterations", ylabel = "Loss")
