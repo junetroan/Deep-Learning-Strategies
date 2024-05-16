@@ -22,7 +22,7 @@ speed = convert(Vector{Float32}, data[:,2])
 throttle = convert(Vector{Float32}, data[:,3])
 brake = convert(Vector{Float32}, data[:,4])
 
-split_ratio = 0.75
+split_ratio = 0.25
 
 distance_train = distance[1:Int(round(split_ratio*size(data, 1)))]
 distance_test = distance[Int(round(split_ratio*size(data, 1))):end]
@@ -120,6 +120,7 @@ function ude_dynamics!(du, u, p, t)
 end
 
 # Closure with the known parameter
+
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
 # Construct ODE Problem
@@ -135,7 +136,7 @@ prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan_train, params, saveat = t
 function group_x(xdim, y , groupsize, predictsize)
     parent = [y[:,i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(xdim) - max(groupsize, predictsize) + 1]
     #trajs = size(parent, 3)
-    firsts =  hcat([parent[i][1, :] for i in 1:108]...) # Speed
+    firsts =  hcat([parent[i][1, :] for i in 1:36]...) # Speed
     parent = cat(parent..., dims=3)
     u0 = firsts[1,:]
     return parent, firsts, u0
@@ -149,9 +150,9 @@ plot(s_train, label = "Speed")
 #plot(b_train, label = "Brake")
 
 plot(s_train, label = "Speed", title = "Training Data", xlabel = "Time", ylabel = "Speed")
-discont = [68, 89, 172, 199, 235, 254, 301, 316, 403, 429]
+#discont = [68, 89, 172, 199, 235, 254, 301, 316, 403, 429]
 
-#discont = [68, 89]
+discont = [68, 89]
 #108
 function tpredictor(θ)
     function prob_func(prob, i, repeat)
@@ -162,7 +163,7 @@ function tpredictor(θ)
     sensealg = ReverseDiffAdjoint()
     shooting_problem = EnsembleProblem(prob = prob_nn, prob_func = prob_func) 
     Array(solve(shooting_problem, verbose = false, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1f-6, reltol = 1f-6, 
-    p=θ, saveat = t_train, trajectories = 108 , sensealg = sensealg, tstops = discont))
+    p=θ, saveat = t_train, trajectories = 36 , sensealg = sensealg, tstops = discont))
 end
 
 tester = tpredictor(params)
@@ -171,12 +172,11 @@ tester = tpredictor(params)
 function loss(θ)
     X̂ = tpredictor(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
-    prediction_error = mean(abs2, pas .- X̂[2:end,:,:])
+    prediction_error = mean(abs2, pas[1,:,:] .- X̂[1,:,:])
     prediction_error + continuity*10f0
 end
 
 lossezzz = loss(params)
-
 
 function predict_final(θ)
     u0_nn_first = U0_nn(first_series[:, 1], θ.initial_condition_model, st0)[1]
@@ -236,13 +236,12 @@ plot(full_traj2[1,:], label = "Prediction")
 plot!(y_train[1,:], label = "Data")
 total_loss = abs(sum(actual_loss))
 
-
-
+plotly()
 function plot_training(tp, real, pred)
     plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:bottomright)
-    #savefig("Results/F1/ANODE-MS II Single Augmentation on F1 data.png")
+    Plots.savefig("Results/F1/ANODE-MS II Single Augmentation on F1 data.png")
 end
 
 plot_training(t_train, y_train[1,:], full_traj2[1,:])
@@ -274,8 +273,8 @@ function plot_results(real_train, real_test, pred, pred_new)
     scatter!(t1, real_train, label = "Training Data")
     scatter!(t3, real_test, label = "Test Data")
     vline!([t3[1]], label = "Training/Test Split")
-    plot!(legend=:topright)
-    #savefig("Results/F1/Training and Testing of ANODE-MS II Model on F1 data.png")
+    plot!(legend=:bottomright)
+    Plots.savefig("Results/F1/Training and Testing of ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(y_train[1,:], y_test[1,:], full_traj2, prediction_new)
