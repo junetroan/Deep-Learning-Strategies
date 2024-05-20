@@ -187,7 +187,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
-    plot!(legend=:topright)
+    plot!(legend=:bottomleft)
     Plots.savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
 end
 
