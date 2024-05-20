@@ -48,6 +48,7 @@ d_test = StatsBase.transform(transformer_distance, distance_test)
 
 transformer_speed = fit(ZScoreTransform, speed_train)
 s_train = StatsBase.transform(transformer_speed, speed_train)
+
 s_test = StatsBase.transform(transformer_speed, speed_test)
 
 transformer_throttle = fit(ZScoreTransform, throttle_train)
@@ -228,7 +229,7 @@ plot!(y_train[1,:], label = "Data")
 
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
-@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 800, allow_f_increases = true)
 
 full_traj2 = predict_final(res_final.u)
 actual_loss = y_train[1,:] - full_traj2[1,:]
@@ -236,9 +237,8 @@ plot(full_traj2[1,:], label = "Prediction")
 plot!(y_train[1,:], label = "Data")
 total_loss = abs(sum(actual_loss))
 
-plotly()
 function plot_training(tp, real, pred)
-    plot(tp, pred, label = "Training Prediction", title="Trained ANODE-MS Model predicting F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(tp, pred, label = "Training Prediction", title="ANODE-MS II Model with Multiple Inputs predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:bottomright)
     Plots.savefig("Results/F1/ANODE-MS II Single Augmentation on F1 data.png")
@@ -268,13 +268,13 @@ test_loss = y_test[1,:] - prediction_new[1,:]
 total_test_loss = sum(abs, test_loss)
 
 function plot_results(real_train, real_test, pred, pred_new)
-    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
+    plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model with Multiple Inputs", xlabel = "Time", ylabel = "Speed")
     plot!(t3, pred_new[1,:], label = "Test Prediction")
     scatter!(t1, real_train, label = "Training Data")
     scatter!(t3, real_test, label = "Test Data")
     vline!([t3[1]], label = "Training/Test Split")
     plot!(legend=:bottomright)
-    Plots.savefig("Results/F1/Training and Testing of ANODE-MS II Model on F1 data.png")
+    Plots.savefig("Results/F1/Training and Testing of Single Augmented ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(y_train[1,:], y_test[1,:], full_traj2, prediction_new)

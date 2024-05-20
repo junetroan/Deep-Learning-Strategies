@@ -6,7 +6,10 @@ using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
-gr()
+using PlotlyKaleido
+
+PlotlyKaleido.start()
+plotly()
 
 # Collecting Data
 data_path = "/Users/junetroan/Desktop/Master Code/Deep-Learning-Strategies/Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - LEC Spain 2023 Qualifying.csv"
@@ -36,7 +39,6 @@ t_test = convert(Vector{Float64}, collect(Int(round(split_ration*size(data, 1)))
 t_train = convert(Vector{Float64}, collect(1:Int(round(split_ration*size(data, 1)))))
 tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
-
 
 datasize = size(X_train, 1)
 # Define the experimental parameter
@@ -139,7 +141,7 @@ callback = function (θ, l)
 end
 
 adtype = Optimization.AutoZygote()  
-optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
+optf = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
@@ -152,17 +154,17 @@ push!(fulltraj_losses, full_traj_loss)
 
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
-@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
+@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 800, allow_f_increases = true)
 
 full_traj2 = predict_final(res_final.u)
 actual_loss = X_train - full_traj2[1,:]
 total_loss = abs(sum(actual_loss))
 
 function plot_results(tp, real, pred)
-    plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS Model II predicting F1 data", xlabel = "Time", ylabel = "Speed")
+    plot(tp, pred[1,:], label = "Training Prediction", title="ANODE-MS II Model with Single Inputs predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
-    plot!(legend=:topright)
-    savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
+    plot!(legend=:bottomright)
+    Plots.savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, X_train, full_traj2)
@@ -180,13 +182,13 @@ test_loss = X_test - prediction_new[1, :]
 total_test_loss = mean(abs2, test_loss)
 
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
-    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Speed")
+    plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model with Single Input", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
     scatter!(train_t, train_x, label = "Training Data")
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
+    Plots.savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj2, prediction_new)
