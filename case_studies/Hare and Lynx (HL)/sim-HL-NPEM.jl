@@ -6,6 +6,8 @@ Author: June Mari Berge Trøan (@junetroan)
 Last updated: 2024-05-23
 
 =#
+
+# Loading libraries
 using DifferentialEquations
 using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL

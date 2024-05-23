@@ -56,7 +56,6 @@ rng2 = StableRNG(i+2)
 
 # Define the experimental parameters
 groupsize = 5 # Number of points in each trajectory
-predsize = 5 # Number of points to predict
 state = 2 # Total number of states used for prediction - always one more than observed state, due to augmentation
 continuity_term = 10.0 # Define the continuity factor that penalises the difference between the last state in the previous prediction and the current initial condition
 
@@ -208,6 +207,11 @@ prob_nn_updated = remake(prob_node, p = res_ms.u.θ, u0 = u0, tspan = test_tspan
 
 # Predicting the test data
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+# Calculating the loss of the test data
+test_loss = X_test - prediction_new[1,:]
+total_test_loss = sum(abs, test_loss)
+
 
 # Plotting the training and testing results
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)

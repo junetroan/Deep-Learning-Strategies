@@ -29,7 +29,7 @@ split_ratio = 0.25
 train = data[1:Int(round(split_ratio*size(data, 1))), :]
 test = data[Int(round(split_ratio*size(data, 1))):end, :]
 
-# Data Cleaning, Normalization and
+# Data Cleaning, Normalization and Definition
 train_data = convert(Vector{Float32}, train[:,1])
 test_data = convert(Vector{Float32}, test[:,1])
 transformer = fit(ZScoreTransform, data)
