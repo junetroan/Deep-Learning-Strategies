@@ -1,7 +1,7 @@
 #=
 
 Simulation file for the Single Simulation of the ANODE-MS I Model on the F1 telemetry data
-Results were used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
+Results were NOT used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
 Author: June Mari Berge Trøan (@junetroan)
 Last updated: 2024-05-23
 
@@ -14,7 +14,10 @@ using SciMLSensitivity
 using Optimization, OptimizationOptimisers, OptimizationOptimJL
 using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
-gr()
+using PlotlyKaleido
+
+PlotlyKaleido.start()
+plotly()
 
 # Loading the data
 data_path = "case_studies/F1 Telemetry (F1)/data/telemetry_data_LEC_spain_2023_qualifying.csv"
@@ -26,7 +29,7 @@ split_ratio = 0.25
 train = data[1:Int(round(split_ratio*size(data, 1))), :]
 test = data[Int(round(split_ratio*size(data, 1))):end, :]
 
-# Data Cleaning and Normalization
+# Data Cleaning, Normalization and
 train_data = convert(Vector{Float32}, train[:,1])
 test_data = convert(Vector{Float32}, test[:,1])
 transformer = fit(ZScoreTransform, data)
@@ -146,7 +149,7 @@ optprob = Optimization.OptimizationProblem(optf, params)
 
 # Saving the loss data
 losses_df = DataFrame(loss = losses)
-CSV.write("sim-F1-ANODE-MS-I/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("sim-F1-ANODE-MS-I/Loss Data/Losses.csv", losses_df, writeheader = false)
 
 # Gathering the predictions from the trained model and calculating the loss
 full_traj = predict_final(res_ms.u)
@@ -157,7 +160,7 @@ function plot_results(tp, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting F1 Telemetry", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topright)
-    savefig("sim-F1-ANODE-MS-I/Plots/Training ANODE-MS I Model on F1 data.png")
+    Plots.savefig("sim-F1-ANODE-MS-I/Plots/Training ANODE-MS I Model on F1 data.png")
 end
 
 plot_results(t_train, X_train, full_traj)
@@ -185,7 +188,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("sim-F1-ANODE-MS-I/Plots/Training and testing of ANODE-MS I Model on F1 data.png")
+    Plots.savefig("sim-F1-ANODE-MS-I/Plots/Training and testing of ANODE-MS I Model on F1 data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)

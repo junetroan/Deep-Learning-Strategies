@@ -50,7 +50,7 @@ rng1 = StableRNG(i)
 rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
-# Define the experimental parameters
+# Defining the experimental parameters
 groupsize = 5 # Number of points in each trajectory
 predsize = 5 # Number of points to predict
 state = 2 # Total number of states used for prediction - always one more than observed state, due to augmentation
@@ -152,7 +152,7 @@ optprob = Optimization.OptimizationProblem(optf, params)
 
 # Saving the loss data
 losses_df = DataFrame(loss = losses)
-CSV.write("sim-F1-ANODE-MS-II/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("sim-F1-ANODE-MS-II/Loss Data/Losses.csv", losses_df, writeheader = false)
 
 # Gathering the predictions from the pre-trained model and calculating the loss
 full_traj = predict_final(res_ms.u)
@@ -193,7 +193,7 @@ saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 test_loss = X_test - prediction_new[1, :]
 total_test_loss = mean(abs2, test_loss)
 
-# Plotting the training and test results
+# Plotting the training and testing results
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model with Single Input", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
