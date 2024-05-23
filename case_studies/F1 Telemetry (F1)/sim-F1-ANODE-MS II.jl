@@ -191,7 +191,7 @@ saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 
 # Calculating the test loss
 test_loss = X_test - prediction_new[1, :]
-total_test_loss = mean(abs2, test_loss)
+total_test_loss = abs(sum(test_loss))
 
 # Plotting the training and testing results
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)

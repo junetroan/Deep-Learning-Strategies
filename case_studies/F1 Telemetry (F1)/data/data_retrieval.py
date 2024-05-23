@@ -1,3 +1,4 @@
+# This file loads the data from the fastf1 API and plots the telemetry data for two drivers 
 import fastf1 as ff1
 from fastf1 import plotting
 from fastf1 import utils
@@ -10,26 +11,21 @@ import pandas as pd
 #ff1.Cache.enable_cache('cache')
 
 year, grand_prix, session = 2023, 'Spain', 'R'
-
 quali = ff1.get_session(year, grand_prix, session)
 quali.load()
-
 driver_1, driver_2= 'LEC1', 'VER'
 
 # Laps can now be accessed through the .laps object coming from the session
 laps_driver_1 = quali.laps.pick_driver(driver_1)
 laps_driver_2 = quali.laps.pick_driver(driver_2)
 
-
 # Select the fastest lap
 fastest_driver_1 = laps_driver_1.pick_fastest()
 fastest_driver_2 = laps_driver_2.pick_fastest()
 
-
 # Retrieve the telemetry and add the distance column
 telemetry_driver_1 = fastest_driver_1.get_telemetry().add_distance()
 telemetry_driver_2 = fastest_driver_2.get_telemetry().add_distance()
-
 
 # Make sure whe know the team name for coloring
 team_driver_1 = fastest_driver_1['Team']
@@ -84,7 +80,7 @@ ax[5].plot(telemetry_driver_2['Distance'], telemetry_driver_2['RPM'], label=driv
 ax[5].set(ylabel='RPM')
 
 # DRS trace
-ax[6].plot(telemetry_driver_1['Distance'], telemetry_driver_1['DRS'], label=driver_1, color=ff1.plotting.team_color(team_driver_1))
+ax[6].plot(telemetry_river_1['Distance'], telemetry_driver_1['DRS'], label=driver_1, color=ff1.plotting.team_color(team_driver_1))
 ax[6].plot(telemetry_driver_2['Distance'], telemetry_driver_2['DRS'], label=driver_2, color=ff1.plotting.team_color(team_driver_2))
 ax[6].set(ylabel='DRS')
 ax[6].set(xlabel='Lap distance (meters)')
