@@ -1,5 +1,13 @@
-#sim-ANODE-MS-F1
+#=
 
+Simulation file for the Single Simulation of the ANODE-MS II Model on the F1 telemetry data
+Results were used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
+Author: June Mari Berge Trøan (@junetroan)
+Last updated: 2024-05-23
+
+=#
+
+# Loading libraries
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
 using SciMLSensitivity
@@ -11,65 +19,54 @@ using PlotlyKaleido
 PlotlyKaleido.start()
 plotly()
 
-# Collecting Data
-data_path = "/Users/junetroan/Desktop/Master Code/Deep-Learning-Strategies/Multiple Shooting (MS)/ANODE-MS/Data/Telemetry Data - LEC Spain 2023 Qualifying.csv"
+# Loading the data
+data_path = "case_studies/F1 Telemetry (F1)/data/telemetry_data_LEC_spain_2023_qualifying.csv"
 all_data = CSV.read(data_path, DataFrame, header = true)
-data = all_data[:, 2]
+data = all_data[:, 2] # Loading the speed telemetry
 
 #Train/test Splits
-split_ration = 0.25
-train = data[1:Int(round(split_ration*size(data, 1))), :]
-test = data[Int(round(split_ration*size(data, 1))):end, :]
+split_ratio = 0.25
+train = data[1:Int(round(split_ratio*size(data, 1))), :]
+test = data[Int(round(split_ratio*size(data, 1))):end, :]
 
-# Data Cleaning and Normalization
+# Data Cleaning, Normalization and Definition
 t = 0.0:1.0:581
 speed = data[:,1]
-
 train_data = convert(Vector{Float64}, train[:,1])
 test_data = convert(Vector{Float64}, test[:,1])
-
 transformer = fit(ZScoreTransform, train_data)
 X_train = StatsBase.transform(transformer, train_data)
-
-plot(X_train)
-
-
 X_test = StatsBase.transform(transformer, test_data)
-t_test = convert(Vector{Float64}, collect(Int(round(split_ration*size(data, 1))):size(data, 1)))
-t_train = convert(Vector{Float64}, collect(1:Int(round(split_ration*size(data, 1)))))
+t_test = convert(Vector{Float64}, collect(Int(round(split_ratin*size(data, 1))):size(data, 1)))
+t_train = convert(Vector{Float64}, collect(1:Int(round(split_ratio*size(data, 1)))))
 tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
-
 datasize = size(X_train, 1)
-# Define the experimental parameter
-rng = StableRNG(1111)
-groupsize = 5
-predsize = 5
-state = 2
-
-fulltraj_losses = Float64[]
-
-# NUMBER OF ITERATIONS OF THE SIMULATION
-i = 1
 
 #Generating random numbers
+i = 1 # Number for random number generation
+rng = StableRNG(i-1)
 rng1 = StableRNG(i)
 rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
-# Simple NN to predict dynamics
+# Define the experimental parameters
+groupsize = 5 # Number of points in each trajectory
+predsize = 5 # Number of points to predict
+state = 2 # Total number of states used for prediction - always one more than observed state, due to augmentation
 
+# Simple neural network to predict system dynamics
 U = Lux.Chain(Lux.Dense(state, 30, tanh),
 Lux.Dense(30, state))
 
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 
-# Simple NN to predict initial points for use in multiple-shooting training
+# Simple neural network to predict initial points for use in multiple-shooting training
 U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30, state - 1))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
-# Define the hybrid model
+# Defining the hybrid model
 function ude_dynamics!(du, u, p, t)
     û = U(u, p.vector_field_model, st)[1] # Network prediction
     du[1:end] = û[1:end]
@@ -78,11 +75,12 @@ end
 # Closure with the known parameter
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
-# Construct ODE Problem
+# Constructing ODE Problem
 augmented_u0 = vcat(X_train[1], randn(rng3, Float64, state - 1))
 params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
+# Grouping the data into trajectories for multiple shooting
 function group_x(X::Vector, groupsize, predictsize)
     parent = [X[i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(X) - max(groupsize, predictsize) + 1]
     parent = reduce(hcat, parent)
@@ -94,6 +92,7 @@ end
 
 pas, targets, nn_predictors, u0_vec = group_x(X_train, groupsize, predsize)
 
+# Prediction function utilising the multiple shooting method for training the model
 function predict(θ)
     function prob_func(prob, i, repeat)
         u0_nn = U0_nn(nn_predictors[:, i], θ.initial_condition_model, st0)[1]
@@ -106,6 +105,7 @@ function predict(θ)
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
+# Loss function for the prediction function
 function loss(θ)
     X̂ = predict(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
@@ -113,6 +113,7 @@ function loss(θ)
     prediction_error + continuity*10.0
 end
 
+# Final prediction function for the trained model
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
@@ -122,14 +123,17 @@ function predict_final(θ)
     X̂
 end
 
+# Loss function for the final prediction function
 function final_loss(θ)
     X̂ = predict_final(θ)
     prediction_error = mean(abs2, X_train .- X̂[1, :])
     prediction_error
 end
 
+# Defining an array to store loss data for each iteration
 losses = Float64[]
 
+# Callback that prints the loss after every 50 iterations to facilitate monitoring
 callback = function (θ, l)
 
     push!(losses, final_loss(θ))
@@ -140,47 +144,56 @@ callback = function (θ, l)
     return false
 end
 
+# Pre-training the model
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
+# Saving the loss data
 losses_df = DataFrame(loss = losses)
-#CSV.write("sim-F1-ANODE-MS/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("sim-F1-ANODE-MS-II/Loss Data/Losses $i.csv", losses_df, writeheader = false)
 
+# Gathering the predictions from the pre-trained model and calculating the loss
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
-push!(fulltraj_losses, full_traj_loss)
 
+# Training the model with the final loss function
 optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
 optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 @time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 800, allow_f_increases = true)
 
+# Gathering the predictions from the final model and calculating the loss
 full_traj2 = predict_final(res_final.u)
 actual_loss = X_train - full_traj2[1,:]
 total_loss = abs(sum(actual_loss))
 
+# Plotting the training results
 function plot_results(tp, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="ANODE-MS II Model with Single Inputs predicting F1 data", xlabel = "Time", ylabel = "Speed")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:bottomright)
-    Plots.savefig("Results/F1/Training ANODE-MS II Model on F1 data.png")
+    Plots.savefig("sim-F1-ANODE-MS-II/Plots/Training ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, X_train, full_traj2)
 
+# Testing the model
+# Defining the test problem
 test_tspan = (t_test[1], t_test[end])
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
+
+# Predicting the test data
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1e-6, reltol = 1e-6,
 saveat =1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
-#t1 = t_train |> collect
-#t3 = t_test|> collect
 
+# Calculating the test loss
 test_loss = X_test - prediction_new[1, :]
 total_test_loss = mean(abs2, test_loss)
 
+# Plotting the training and test results
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model with Single Input", xlabel = "Time", ylabel = "Speed")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
@@ -188,7 +201,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:bottomleft)
-    Plots.savefig("Results/F1/Training and testing of ANODE-MS II Model on F1 data.png")
+    Plots.savefig("sim-F1-ANODE-MS-II/Plots/Training and testing of ANODE-MS II Model on F1 data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj2, prediction_new)
