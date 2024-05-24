@@ -44,7 +44,7 @@ tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
 # Interpolation of data
-y_zoh = ConstantInterpolation(X_train, tsteps)
+y_zoh = LinearInterpolation(X_train, tsteps)
 
 # Defining the number of iterations wanted for the full simulation
 iters = 2
@@ -123,9 +123,12 @@ state = 2 # Total number of states used for prediction - always one more than ob
         # Doesn't work at 5000 with AutoTsit5(Rosenbrock23(autodiff = true))- maxiters/stiffness problems reported. Set to 550, which works. AutoVern7(KenCarp4(autodiff = true)) works at 5000 iterations
         # The abstol and reltol is also changed from 10e-8 to 10e-6
 
-        # Saving the loss data for each iteration
+        # Saving the loss data for each iteration, in addition to the recorded K-values
         losses_df = DataFrame(losses = losses)
+        Ks_mat =  mapreduce(permutedims, vcat, Ks)
+        Ks_df = DataFrame(Ks_mat, :auto)
         CSV.write("full-sim-HL-NPEM/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+        CSV.write("full-sim-HL-NPEM/Ks/Ks $i.csv", Ks_df, writeheader = false)
                     
         # Gathering the predictions from the trained model
         full_traj = prediction(res_ms.u)

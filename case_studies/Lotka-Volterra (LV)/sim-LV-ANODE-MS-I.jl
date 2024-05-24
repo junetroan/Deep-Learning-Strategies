@@ -1,6 +1,6 @@
 #=
 
-Simulation file for the Single Simulation of the ANODE-MS II Model on the Lotka-Volterra data
+Simulation file for the Single Simulation of the ANODE-MS I Model on the Lotka-Volterra data
 Results were used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
 Author: June Mari Berge Trøan (@junetroan)
 Last updated: 2024-05-24
@@ -143,7 +143,7 @@ callback = function (θ, l)
     return false
 end
 
-# Pre-training the model
+# Training the model
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
@@ -151,20 +151,12 @@ optprob = Optimization.OptimizationProblem(optf, params)
 
 # Saving the loss data
 losses_df = DataFrame(loss = losses)
-CSV.write("sim-LV-ANODE-MS-II/Loss Data/Losses.csv", losses_df, writeheader = false)
+CSV.write("sim-LV-ANODE-MS-I/Loss Data/Losses.csv", losses_df, writeheader = false)
 
-# Gathering the predictions from the pre-trained model and calculating the loss 
+# Gathering the predictions from the trained model and calculating the loss 
 final_traj = predict_final(res_ms.u)[1,:]
 full_traj_loss = final_loss(res_ms.u)
-
-# Training the model
-optf_final = Optimization.OptimizationFunction((x,p) -> final_loss(x), adtype)
-optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
-@time res_final = Optimization.solve(optprob_final, BFGS(initial_stepnorm = 0.01), callback=callback, maxiters = 1000, allow_f_increases = true)
-
-# Gathering the final predictions of the trained model
-full_traj2 = predict_final(res_final.u)
-actual_loss = Xₙ[1,:] - full_traj2[1,:]
+actual_loss = Xₙ[1,:] - final_traj
 total_loss = abs(sum(actual_loss))
 
 # Plotting the training results
@@ -172,10 +164,10 @@ function plot_results(tp,real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS II Model predicting Lotka-Volterra data", xlabel = "Time", ylabel = "Population")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("sim-LV-ANODE-MS-II/Training ANODE-MS II Model on Lotka-Volterra data.png")
+    savefig("sim-LV-ANODE-MS-II/Plots/Training ANODE-MS II Model on Lotka-Volterra data.png")
 end
 
-plot_results(t, X_train, full_traj2)
+plot_results(t, Xₙ[1,:], full_traj)
 
 # Testing 
 # Generating synthetic test data
@@ -184,9 +176,9 @@ prob_new = ODEProblem(lotka!, u0, (0.0f0, 40.0f0), p_)
 @time solution_new = solve(prob_new, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
 # Defining the test pronlem
-predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_final.u.initial_condition_model, st0)[1]
+predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
-prob_nn_updated = remake(prob_nn, p = res_final.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
+prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = (0.0f0, 40.0f0))
 
 # Predicting the test data
 prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
@@ -197,7 +189,6 @@ updated_obsgrid = 0.0:0.25:40.0
 test_loss = solution_new[1,:] - prediction_new[1,:]
 total_test_loss = sum(abs, test_loss)
 
-
 # Plotting the training and testing results
 function plot_results(t, real, pred, pred_new)
     plot(t1, pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS II Model", xlabel = "Time", ylabel = "Population")
@@ -206,7 +197,7 @@ function plot_results(t, real, pred, pred_new)
     scatter!(t3, solution_new[1,41:123], label = "Test Data")
     vline!([t1[41]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("sim-LV-ANODE-MS-II/Plots/ANODE-MS-II LV Training and Testing.png")
+    savefig("sim-LV-ANODE-MS-I/Plots/ANODE-MS-II LV Training and Testing.png")
 end
 
-plot_results(t, Xₙ, full_traj2, prediction_new)
+plot_results(t, Xₙ, full_traj, prediction_new)

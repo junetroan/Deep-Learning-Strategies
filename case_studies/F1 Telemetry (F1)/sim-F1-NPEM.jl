@@ -48,7 +48,7 @@ tspan = (t_train[1], t_train[end])
 tsteps = range(tspan[1], tspan[2], length = length(X_train))
 
 # Interpolation of the data
-y_zoh = ConstantInterpolation(X_train, tsteps)
+y_zoh = LinearInterpolation(X_train, tsteps)
 
 #Generating random numbers
 i = 1 # Number of points in each trajectory

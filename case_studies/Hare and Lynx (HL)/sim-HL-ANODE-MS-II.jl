@@ -21,7 +21,7 @@ data_path = "case_studies/Hare and Lynx (HL)/data/lynx_hare_data.csv"
 data = CSV.read(data_path, DataFrame)
 
 #Train/test Splits
-split_ratio = 0.75
+split_ratio = 0.25
 train = data[1:Int(round(split_ratio*size(data, 1))), :]
 test = data[Int(round(split_ratio*size(data, 1))):end, :]
 
@@ -71,7 +71,6 @@ nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 augmented_u0 = vcat(X_train[1], randn(rng3, state - 1))
 params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
-
 
 # Grouping the data into trajectories for multiple shooting
 function group_x(X::Vector, groupsize, predictsize)
@@ -159,6 +158,8 @@ optprob_final = Optimization.OptimizationProblem(optf_final, res_ms.u)
 
 # Gathering the final predictions of the trained model
 full_traj2 = predict_final(res_final.u)
+actual_loss = X_train - full_traj2[1,:]
+total_loss = abs(sum(actual_loss))
 
 # Plotting the training results
 function plot_results(tp,real, pred)

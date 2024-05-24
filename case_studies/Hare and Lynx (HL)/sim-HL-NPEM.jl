@@ -148,10 +148,9 @@ u0 = [X_test[1], mean(X_test)]
 params_test = ComponentVector{Float64}(vector_field_model = p)
 prob_test = ODEProblem(simulator!, u0 , tspan_test, params_test, saveat=tsteps_test)
 prob = remake(prob_test, p = res_ms.u, tspan = tspan_test)
-soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
-t1 = t_train |> collect
-t3 = t_test |> collect
+# Predicting the test data
+soln_nn = Array(solve(prob, AutoVern7(KenCarp4(autodiff=true)), abstol = 1e-6, reltol = 1e-6, saveat = 1.0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
 # Calculating the test loss
 test_loss = X_test - soln_nn[1,:]
@@ -165,7 +164,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("sim-HL-NPEM/Training and testing of NPEM Model on Hare and Lynx data.png")
+    savefig("sim-HL-NPEM/Plots/Training and testing of NPEM Model on Hare and Lynx data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, soln_nn)
