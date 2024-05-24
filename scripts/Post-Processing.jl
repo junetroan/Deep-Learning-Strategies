@@ -1,95 +1,73 @@
-using CSV, FilePathsBase, DataFrames, Plots, Statistics, PlotlyBase, PlotlyKaleido
-gr()
+using CSV
+using DataFrames
+using Plots
+using Statistics
+using CSV
+using PlotlyKaleido
+# Set the backend for Plots to Plotly
 
-# Reading the loss data into a DataFrame
-#folder_path_ANODE = "Multiple Shooting (MS)/ANODE-MS/Case Studies/Loss Data/ANODE-MS"
-folder_path_ANODE = "/Users/junetroan/Desktop/data-ANODEMS-LV-correct/Loss Data"
-file_names_ANODE = readdir(folder_path_ANODE)
-file_names_ANODE = file_names_ANODE[1:500]
+PlotlyKaleido.start()
+plotly()
 
-missing_files = []
-for i in 1:500
-    file_name = "Losses $i.csv"
-    if !(file_name in file_names_ANODE)
-        push!(missing_files, file_name)
-    end
-end
-
-if isempty(missing_files)
-    println("No files are missing.")
-else
-    println("The following files are missing:")
-    println(missing_files)
-end#
-
-df_ANODE = DataFrame()
-
-folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
-file_names_NODE = readdir(folder_path_NODE)
-df_NODE = DataFrame()
-
-folder_path_PEM = "/Users/junetroan/Desktop/Results/files Ks/Loss Data Ks"
-file_names_PEM = readdir(folder_path_PEM)
-PEM_files = file_names_PEM[501:1000]
-df_PEM = DataFrame()
-
-function reader(file_names, folder_path, df)  
-    for file in file_names
-        full_path = joinpath(folder_path, file)
+# Function to read CSV files into a DataFrame
+function read_data(folder_path)
+    df = DataFrame()
+    file_names = readdir(folder_path)[1:400]  # Adjust the range as necessary
+    for file_name in file_names
+        full_path = joinpath(folder_path, file_name)
         col_data = CSV.read(full_path, DataFrame)
-        col_name = basename(file)
-        df[!, Symbol(col_name)] = col_data[!, :1] #Note! All the files need to have the same amount of data points
+        col_name = splitext(basename(file_name))[1]
+        df[!, Symbol(col_name)] = col_data[!, 1]  # Assuming data in the first column
     end
+    return df
 end
 
-reader(file_names_ANODE, folder_path_ANODE, df_ANODE)
-reader(file_names_NODE, folder_path_NODE, df_NODE)
-reader(PEM_files, folder_path_PEM, df_PEM)
-
-# Plotting the loss evolution
-function plotter(df)
-    p = plot(xlabel="Iterations", ylabel="Loss", title="Loss Evolution")
-    
-    simulation_counter = 1
-
-    for col_name = names(df)
-        label_name = "Simulation " *string(simulation_counter)
-        plot!(p, df[!, Symbol(col_name)], label = label_name)
-
-        simulation_counter += 1
+# Plotting function for loss evolution
+function plot_loss(df, title)
+    p = Plots.plot(title=title, xlabel="Iterations", ylabel="Loss")
+    for col_name in names(df)
+        Plots.plot!(p, df[!, col_name], label=String(col_name))
     end
-
-    display(p)
+    #display(p)
+    Plots.savefig(p, title * ".png")
 end
 
-plotter(df_ANODE)
-plotter(df_NODE)
-plotter(df_PEM)
-
-# Averaging the losses
-function averager(df)
+# Averaging and plotting function with standard deviation
+function average_loss_plot(df, title)
     row_means = mean.(eachrow(df))
-    row_stds = std.(eachrow(df))    
-    p = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution of NPEM Model", xlabel="Iteration", ylabel="Average Loss")
-    p2 = plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title="Loss Evolution of NPEM Model", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
-    #savefig(p, "Multiple Shooting (MS)/ANODE-MS/Simulations ANODE-MS Loss Evolution.png")
-    #savefig(p2, "Multiple Shooting (MS)/ANODE-MS/Simulations ANODE-MS Loss Evolution (Log Scale).png")
-    #Plots.savefig(p, "Results/LV/ANODE-MS II Loss Evolution.png")
-    
-    #Plots.savefig(p2, "Results/LV/ANODE-MS II Loss Evolution (Log Scale).png")
-   
-    #Plots.savefig(p, "Results/LV/MNODE-MS Loss Evolution.png")
-     
-    #Plots.savefig(p2, "Results/LV/MNODE-MS Loss Evolution (Log Scale).png")
-    
-    #Plots.savefig(p, "Results/LV/NPEM Loss Evolution.png")
-
-    Plots.savefig(p2, "Results/LV/NPEM Loss Evolution (Log Scale).png")
+    row_stds = std.(eachrow(df))
+    p = Plots.plot(1:nrow(df), row_means, ribbon=row_stds, label="Average Loss with Std Dev", title=title, xlabel="Iteration", ylabel="Average Loss", legend=:bottomright, yscale=:log10)
+    display(p)
+    #Plots.savefig(p, title * ".png")
 end
 
-averager(df_ANODE)
-averager(df_NODE)
-averager(df_PEM)
+# Directory paths for data
+#folder_path_ANODE = "/Users/junetroan/Desktop/data-ANODEMS-LV-correct/Loss Data"
+#folder_path_NODE = "/Users/junetroan/Desktop/ModifiedMS_LV/Loss Data"
+#folder_path_PEM = "/Users/junetroan/Desktop/Results/Loss Data"
+
+folder_path_ANODE = "/Users/junetroan/Desktop/ANODE-MS LV/Loss Data"
+folder_path_NODE = "/Users/junetroan/Desktop/MNODE-MS HL/Loss Data"
+folder_path_PEM = "/Users/junetroan/Desktop/NPEM HL/Loss Data"
+
+# Data reading
+df_ANODE = read_data(folder_path_ANODE)
+df_NODE = read_data(folder_path_NODE)
+df_PEM = read_data(folder_path_PEM)  # Assuming you want a specific range here
+
+# Plotting loss evolution
+plot_loss(df_ANODE, "Loss Evolution of ANODE-MS I Model")
+plot_loss(df_NODE, "Loss Evolution of MNODE-MS Model")
+plot_loss(df_PEM, "Loss Evolution of NPEM Model")
+
+# Average loss plots
+average_loss_plot(df_ANODE, "Average Loss Evolution of ANODE-MS I Model")
+average_loss_plot(df_NODE, "Average Loss Evolution of MNODE-MS Model")
+average_loss_plot(df_PEM, "Average Loss Evolution of NPEM Model")
+
+average_loss_plot(df_ANODE, "Average Loss Evolution of ANODE-MS I Model (logscale)")
+average_loss_plot(df_NODE, "Average Loss Evolution of MNODE-MS Model (logscale)")
+average_loss_plot(df_PEM, "Average Loss Evolution of NPEM Model (logscale)")
 
 function compare(df1, df2)
 
@@ -105,11 +83,11 @@ function compare(df1, df2)
     log_stds_1 = log.(row_stds_1)
     log_stds_2 = log.(row_stds_2)
 
-    p = plot(1:nrow(df1), row_means_1, ribbon=row_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
+    p = plot(1:nrow(df1), row_means_1, ribbon=row_stds_1, label="MNODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
         plot!(p, 1:nrow(df2), row_means_2, ribbon=row_stds_2, label="NPEM")
     
     #p2 = plot(1:nrow(df1), log_means_1, ribbon=log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss")
-    p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
+    p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="MNODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10)
     plot!(p3, 1:nrow(df2), row_means_2, ribbon = log_stds_2, label="NPEM")
     #plot!(p2, 1:nrow(df2), log_means_2, ribbon=log_stds_2, label="PEM")
     
@@ -121,34 +99,50 @@ function compare(df1, df2)
     #p3 = plot(1:nrow(df1), row_means_1, ribbon = log_stds_1, label="ANODE-MS", title="Comparison of Loss Evolution", xlabel="Iteration", ylabel="Average Loss", yscale=:log10, size=(800,600))
     #plot!(p3, 1:nrow(df2), row_means_2, ribbon = log_stds_2, label="PEM")
     
-    #savefig(p, "Results/LV/Comparison ANODE-MS vs. NPEM.png")
-    Plots.savefig(p3, "Results/LV/Comparison ANODE-MS vs. NPEM (Log Scale).png")
-    #=
-    savefig(p, "Results/LV/Comparison ANODE-MS vs. MNODE-MS.png")
-    savefig(p3, "Results/LV/Comparison ANODE-MS vs. MNODE-MS (Log Scale).png")
+    #Plots.savefig(p, "Results/HL/Comparison ANODE-MS vs. NPEM.png")
+    #Plots.savefig(p3, "Results/HL/Comparison ANODE-MS vs. NPEM (Log Scale).png")
+    
+    #Plots.savefig(p, "Results/HL/Comparison ANODE-MS vs. MNODE-MS.png")
+    #Plots.savefig(p3, "Results/HL/Comparison ANODE-MS vs. MNODE-MS (Log Scale).png")
 
-    savefig(p, "Results/LV/Comparison MNODE-MS vs. NPEM.png")
-    savefig(p3, "Results/LV/Comparison MNODE-MS vs. NPEM (Log Scale).png")
-    =#
+    #Plots.savefig(p, "Results/HL/Comparison MNODE-MS vs. NPEM.png")
+    Plots.savefig(p3, "Results/HL/Comparison MNODE-MS vs. NPEM (Log Scale).png")
 end
 
-compare(df_ANODE, df_PEM)
-compare(df_ANODE, df_NODE)
+#compare(df_ANODE, df_PEM)
+#compare(df_ANODE, df_NODE)
 compare(df_NODE, df_PEM)
 
 
-path_Ks = "/Users/junetroan/Desktop/Results/files Ks/Loss Data Ks"
-file_names_Ks = readdir(path_Ks)
-files = file_names_Ks[1:500]
-df_Ks = DataFrame()
+function load_files(directory, num_files)
+    df = DataFrame()  # Initialize an empty DataFrame
+    
+    for i in 1:num_files
+        file_path = joinpath(directory, "Ks $i.csv")
+        if isfile(file_path)
+            try
+                # Specify the delimiter as comma
+                temp_df = CSV.read(file_path, DataFrame, delim=',')
+                df = vcat(df, temp_df, cols=:union)  # Concatenate using union of columns
+            catch error
+                println("Failed to read $file_path: $error")
+            end
+        else
+            println("File does not exist: $file_path")
+        end
+    end
+    return df
+end
 
-reader(files, path_Ks, df_Ks)
+# Usage
+final_df = load_files("/Users/junetroan/Desktop/Results/Ks", 500)
 
 matrix_Ks = Matrix(df_Ks)
 
 
+#=
 heat = heatmap(matrix_Ks, 
-        title = "Heatmap of K values over 500 Simulations",
+        title = "Heatmap of K values over 400 Simulations",
         xlabel = "Iterations",
         ylabel = "Simulations",
         color = :plasma,
@@ -159,7 +153,7 @@ savefig(heat, "Multiple Shooting (MS)/ANODE-MS/Case Studies/Heatmap of K values.
 final_Ks = matrix_Ks[500, :]
 
 hist = histogram(final_Ks, 
-    title = "Histogram of K values after 500 Simulations",
+    title = "Histogram of K values after 400 Simulations",
     xlabel = "K values",
     ylabel = "Frequency",
     color = :orange,
@@ -167,4 +161,5 @@ hist = histogram(final_Ks,
     bins = 20)
 
 
-savefig(hist, "Multiple Shooting (MS)/ANODE-MS/Case Studies/Histogram of K values.png")Pan
+display(hist)
+=#
