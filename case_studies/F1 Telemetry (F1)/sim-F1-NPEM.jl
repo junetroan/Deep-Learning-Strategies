@@ -1,9 +1,9 @@
 #=
 
-Simulation file for the Single Simulation of the ANODE-MS II Model on the F1 telemetry data
-Model has not been run in the current configuration
+Simulation file for the Single Simulation of the NPEM Model on the F1 telemetry data
+Results were NOT used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
 Author: June Mari Berge Trøan (@junetroan)
-Last updated: 2024-05-23
+Last updated: 2024-05-24
 
 =#
 
@@ -65,12 +65,6 @@ U = Lux.Chain(Lux.Dense(state, 30, tanh),Lux.Dense(30, state))
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 
-# Constructing the ODE Problem
-u0 = [X_train[1], 0] 
-params = ComponentVector{Float32}(vector_field_model = p, K = K)
-prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
-soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0))
-
 # Predictor function for training the model
 function predictor!(du,u,p,t)
     û = U(u, p.vector_field_model, st)[1]
@@ -78,6 +72,12 @@ function predictor!(du,u,p,t)
     e = yt .- û[1]
     du[1:end] =  û[1:end] .+ abs.(p.K) .* e
 end
+
+# Constructing the ODE Problem
+u0 = [X_train[1], 0] 
+params = ComponentVector{Float32}(vector_field_model = p, K = K)
+prob_nn = ODEProblem(predictor!, u0 , tspan, params, saveat = 1.0f0 )
+soln_nn = Array(solve(prob_nn, AutoTsit5(Rosenbrock23(autodiff=false)), abstol = 1e-8, reltol = 1e-8, saveat = 1.0f0))
 
 # Prediction function for gathering the predictions of the trained model
 function prediction(p)

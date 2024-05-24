@@ -4,7 +4,7 @@ Simulation file for the Single Simulation of the MNODE-MS Model on the F1 teleme
 The model is based on the proposed "multiple_shoot" method from the library DiffEqFlux in Julia, but modified to have an augmented state
 Results were NOT used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
 Author: June Mari Berge Trøan (@junetroan)
-Last updated: 2024-05-23
+Last updated: 2024-05-24
 
 =#
 
@@ -60,14 +60,13 @@ state = 2 # Total number of states used for prediction - always one more than ob
 continuity_term = 10.0 # Define the continuity factor that penalises the difference between the last state in the previous prediction and the current initial condition
 
 # Simple neural network to predict system dynamics
-U = Lux.Chain(Lux.Dense(state, 30, tanh)
-Lux.Dense(30, state))
+U = Lux.Chain(Lux.Dense(state, 30, tanh), Lux.Dense(30, state))
 
 # Get the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 
 # Constructing the ODE Problem
-params = ComponentVector{Float32}(vector_field_model = p)
+parameters = ComponentVector{Float32}(vector_field_model = p)
 u0 = vcat(X_train[1], randn(rng2, Float32, state - 1))
 neuralode = NeuralODE(U, tspan, AutoTsit5(Rosenbrock23(autodiff = false)), saveat = step, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true)))
 prob_node = ODEProblem((u,p,t) -> U(u, p, st)[1][1:end], u0, tspan, ComponentArray(p))
@@ -130,7 +129,7 @@ continuity_loss(uᵢ₊₁, uᵢ) = sum(abs2, uᵢ₊₁ - uᵢ)
 
 # Defining the prediction function utilising single shooting method
 predict_single_shooting(p) = Array(first(neuralode(u0_init[1,:],p,st)))
-tester_pred_ss = predict_single_shooting(params.vector_field_model)
+tester_pred_ss = predict_single_shooting(parameters.vector_field_model)
 
 # Loss function for the single shooting method
 function loss_single_shooting(p)
@@ -140,14 +139,14 @@ function loss_single_shooting(p)
 end
 
 # Gathering the prediction of the single shooting method
-ls, ps = loss_single_shooting(params.vector_field_model)
+ls, ps = loss_single_shooting(parameters.vector_field_model)
 
 # Defining the parameters for the prediction function utilising the multiple shooting method
-params = ComponentVector{Float32}(θ = p, u0_init = u0_init)
-ls, ps = multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize; continuity_term)
+parameters = ComponentVector{Float32}(θ = p, u0_init = u0_init)
+ls, ps = multiple_shoot_mod(parameters, X_train, tsteps, prob_node, loss_function, continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize; continuity_term)
 
 # Running the prediction function utilising the multiple shooting method
-multiple_shoot_mod(params, X_train, tsteps, prob_node, loss_function,
+multiple_shoot_mod(parameters, X_train, tsteps, prob_node, loss_function,
     continuity_loss, AutoTsit5(Rosenbrock23(autodiff = false)), groupsize;
     continuity_term)
 
@@ -159,8 +158,8 @@ function loss_multiple_shoot(p)
 end
 
 # Gathering the predictions from the trained model and finding the loss
-test_multiple_shoot = loss_multiple_shoot(params)
-loss_single_shooting(params.θ)[1]
+test_multiple_shoot = loss_multiple_shoot(parameters)
+loss_single_shooting(parameters.θ)[1]
 
 # Defining an array to store loss data for each iteration
 losses = Float32[]
@@ -178,7 +177,7 @@ end
 # Training the model
 adtype = Optimization.AutoZygote()
 optf = Optimization.OptimizationFunction((x,p) -> loss_multiple_shoot(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, params)
+optprob = Optimization.OptimizationProblem(optf, parameters)
 @time res_ms = Optimization.solve(optprob, ADAM(),  maxiters = 5000, callback = callback) 
 
 # Saving the loss data
