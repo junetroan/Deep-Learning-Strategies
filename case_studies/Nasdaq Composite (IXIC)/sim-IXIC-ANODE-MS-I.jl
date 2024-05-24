@@ -1,5 +1,13 @@
-# sim-HL-ANODE-MS
+#=
 
+Simulation file for the Single Simulation of the ANODE-MS I Model on the historical Nasdaq Composite (IXIC) data
+Results were used in the master's thesis of the author - "Novel Deep Learning Strategies for Time Series Forecasting"
+Author: June Mari Berge Trøan (@junetroan)
+Last updated: 2024-05-24
+
+=#
+
+#Loading libraries
 using CSV, DataFrames, Plots, Statistics, StatsBase
 using DifferentialEquations
 using SciMLSensitivity
@@ -8,11 +16,9 @@ using LinearAlgebra, Statistics
 using ComponentArrays, Lux, Zygote, StableRNGs , Plots, Random
 gr()
 
-# Collecting Data
-data_path = "Multiple Shooting (MS)/ANODE-MS/Data/^IXIC.csv"
+# Loading the data
+data_path = "case_studies/Nasdaq Composite (IXIC)/data/^IXIC.csv"
 data = CSV.read(data_path, DataFrame)
-
-# Data Cleaning and Normalization
 date = data[:, 1]
 open_price = data[:, 2]
 
@@ -21,47 +27,40 @@ split_ratio = 0.25
 train = open_price[1:Int(round(split_ratio*size(open_price, 1))), :]
 test = open_price[Int(round(split_ratio*size(open_price, 1))):end, :]
 
+# Data Cleaning, Normalization and Definition
+t = collect(1:size(data, 1))
+t = Float64.(t)
 t_train = Float64.(collect(1:Int(round(split_ratio*size(open_price, 1)))))
 t_test = Float64.(collect(Int(round(split_ratio*size(open_price, 1))):size(open_price, 1)))
-
 transformer = fit(ZScoreTransform, open_price)
 X_train = vec(Float64.(StatsBase.transform(transformer, train)))
 X_test = vec(Float64.(StatsBase.transform(transformer, test)))
-
-t = collect(1:size(data, 1))
-t = Float64.(t)
 tspan = (minimum(t_train), maximum(t_train))
 
-# Define the experimental parameter
-groupsize = 5
-predsize = 5
-state = 2
-
-
-fulltraj_losses = Float64[]
-
-
-# NUMBER OF ITERATIONS OF THE SIMULATION
-i = 2
-
 #Generating random numbers
+i = 1 # Number for random number generation
+rng = StableRNG(i-1)
 rng1 = StableRNG(i)
 rng2 = StableRNG(i+2)
 rng3 = StableRNG(i+3)
 
-# Simple NN to predict dynamics
+# Define the experimental parameters
+groupsize = 5 # Number of points in each trajectory
+predsize = 5 # Number of points to predict
+state = 2 # Total number of states used for prediction - always one more than observed state, due to augmentation
 
+# Simple neural network to predict system dynamics
 U = Lux.Chain(Lux.Dense(state, 30, tanh),
 Lux.Dense(30, state))
 
-# Get the initial parameters and state variables of the model
+# Retrieving the initial parameters and state variables of the model
 p, st = Lux.setup(rng1, U)
 
-# Simple NN to predict initial points for use in multiple-shooting training
+# Simple neural network to predict initial points for use in multiple-shooting training
 U0_nn = Lux.Chain(Lux.Dense(groupsize, 30, tanh), Lux.Dense(30, state - 1))
 p0, st0 = Lux.setup(rng2, U0_nn)
 
-# Define the hybrid model
+# Defining the hybrid model
 function ude_dynamics!(du, u, p, t)
     û = U(u, p.vector_field_model, st)[1] # Network prediction
     du[1:end] = û[1:end]
@@ -70,11 +69,12 @@ end
 # Closure with the known parameter
 nn_dynamics!(du, u, p, t) = ude_dynamics!(du, u, p, t)
 
-# Construct ODE Problem
+# Constructing ODE Problem
 augmented_u0 = vcat(X_train[1], randn(rng3, Float64, state - 1))
 params = ComponentVector{Float64}(vector_field_model = p, initial_condition_model = p0)
 prob_nn = ODEProblem(nn_dynamics!, augmented_u0, tspan, params, saveat = t_train)
 
+# Grouping the data into trajectories for multiple shooting
 function group_x(X::Vector, groupsize, predictsize)
     parent = [X[i: i + max(groupsize, predictsize) - 1] for i in 1:(groupsize-1):length(X) - max(groupsize, predictsize) + 1]
     parent = reduce(hcat, parent)
@@ -86,6 +86,7 @@ end
 
 pas, targets, nn_predictors, u0_vec = group_x(X_train, groupsize, predsize)
 
+# Prediction function utilsing the multiple shooting method for training the model
 function predict(θ)
     function prob_func(prob, i, repeat)
         u0_nn = U0_nn(nn_predictors[:, i], θ.initial_condition_model, st0)[1]
@@ -98,6 +99,7 @@ function predict(θ)
     p=θ, saveat = t_train, trajectories = length(u0_vec), sensealg = sensealg))
 end
 
+# Loss function for the prediction function
 function loss(θ)
     X̂ = predict(θ)
     continuity = mean(abs2, X̂[:, end, 1:end - 1] - X̂[:, 1, 2:end])
@@ -105,6 +107,7 @@ function loss(θ)
     prediction_error + continuity*10f0
 end
 
+# Final prediction function for the trained model
 function predict_final(θ)
     predicted_u0_nn = U0_nn(nn_predictors[:,1], θ.initial_condition_model, st0)[1]
     u0_all = vcat(u0_vec[1], predicted_u0_nn)
@@ -114,14 +117,17 @@ function predict_final(θ)
     X̂
 end
 
+# Loss function for the final prediction function
 function final_loss(θ)
     X̂ = predict_final(θ)
     prediction_error = mean(abs2, X_train .- X̂[1, :])
     prediction_error
 end
 
+# Defining an array to store loss data for each iteration
 losses = Float32[]
 
+# Callback that prints the loss after every 50 iterations to facilitate monitoring
 callback = function (θ, l)
 
     push!(losses, final_loss(θ))
@@ -132,39 +138,46 @@ callback = function (θ, l)
     return false
 end
 
+# Training the model
 adtype = Optimization.AutoZygote()  
 optf = Optimization.OptimizationFunction((x,p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, params)
 @time res_ms = Optimization.solve(optprob, ADAM(), callback=callback, maxiters = 5000)
 
+# Saving the loss data
 losses_df = DataFrame(loss = losses)
-CSV.write("Results/IXIC/Loss Data/Losses $i.csv", losses_df, writeheader = false)
+CSV.write("sim-IXIC-ANODE-MS-I/Loss Data/Losses.csv", losses_df, writeheader = false)
 
+# Gathering the predictions from the trained model and calculating the loss
 full_traj = predict_final(res_ms.u)
 full_traj_loss = final_loss(res_ms.u)
-push!(fulltraj_losses, full_traj_loss)
 
-function plot_results(tp,tr, real, pred)
+# Plotting the training results
+function plot_results(tp, real, pred)
     plot(tp, pred[1,:], label = "Training Prediction", title="Trained ANODE-MS I Model predicting IXIC data", xlabel = "Time", ylabel = "Opening Price")
     plot!(tp, real, label = "Training Data")
     plot!(legend=:topleft)
-    savefig("Results/IXIC/Training ANODE-MS I Model on IXIC data.png")
+    savefig("sim-IXIC-ANODE-MS-I/Plots/Training ANODE-MS I Model on IXIC data.png")
 end
 
-plot_results(t_train, t, X_train, full_traj)
+plot_results(t_train, X_train, full_traj)
 
+# Testing the model
+# Defining the test problem
 test_tspan = (t_test[1], t_test[end])
 predicted_u0_nn = U0_nn(nn_predictors[:, 1], res_ms.u.initial_condition_model, st0)[1]
 u0_all = vcat(u0_vec[1], predicted_u0_nn)
 prob_nn_updated = remake(prob_nn, p = res_ms.u, u0 = u0_all, tspan = test_tspan)
-prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
-saveat =1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
 
+# Predicting the test data
+prediction_new = Array(solve(prob_nn_updated, AutoVern7(KenCarp4(autodiff = true)),  abstol = 1f-6, reltol = 1f-6,
+saveat = 1.0f0, sensealg = InterpolatingAdjoint(autojacvec = ReverseDiffVJP(true))))
+
+# Calculating the loss of the test data
 actual_loss = X_test-prediction_new[1,:]
 total_loss = abs(sum(actual_loss))
-total_loss2 = abs2(sum(actual_loss))
-MSE = total_loss2 / length(solution_new[1,:])
 
+# Plotting the training and test results
 function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     plot(train_t, train_pred[1,:], label = "Training Prediction", title="Training and Test Predictions of ANODE-MS I Model", xlabel = "Time", ylabel = "Opening Price")
     plot!(test_t, test_pred[1,:], label = "Test Prediction")
@@ -172,7 +185,7 @@ function plot_results(train_t, test_t, train_x, test_x, train_pred, test_pred)
     scatter!(test_t, test_x, label = "Test Data")
     vline!([test_t[1]], label = "Training/Test Split")
     plot!(legend=:topright)
-    savefig("Results/IXIC/Training and testing of ANODE-MS I Model on IXIC data.png")
+    savefig("sim-IXIC-ANODE-MS-I/Plots/Training and testing of ANODE-MS I Model on IXIC data.png")
 end
 
 plot_results(t_train, t_test, X_train, X_test, full_traj, prediction_new)

@@ -60,7 +60,7 @@ state = 2 # Total number of states used for prediction - always one more than ob
 continuity_term = 10.0 # Define the continuity factor that penalises the difference between the last state in the previous prediction and the current initial condition
 
 # Simple neural network to predict system dynamics
-U = Lux.Chain(Lux.Dense(state, 30, tanh),
+U = Lux.Chain(Lux.Dense(state, 30, tanh)
 Lux.Dense(30, state))
 
 # Get the initial parameters and state variables of the model
@@ -194,7 +194,7 @@ function plot_results(real, pred, t)
     plot(t, pred[1,:], label = "Training Prediction", title="Iteration $i of Randomised MNODE-MS Model", xlabel="Time", ylabel="Population")
     plot!(t, real, label = "Training Data")
     plot!(legend=:bottomright)
-    Plots.savefig("sim-F1-MNODE-MS/Plots/Training ANODE-MS II Model on F1 data.png.png")
+    Plots.savefig("sim-F1-MNODE-MS/Plots/Training MNODE-MS Model on F1 data.png.png")
 end
 
 plot_results(X_train, preds, t_train)
