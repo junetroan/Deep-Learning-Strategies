@@ -1,7 +1,7 @@
 # Deep Learning Strategies
-This repository is for my master's thesis, _**Novel Deep Learning Strategies for Time Series Forecasting**_, in which I explore how novel deep-learning strategies can be used for time series forecasting.
+This repository includes the code that was developed for my master's thesis, _**Novel Deep Learning Strategies for Time Series Forecasting**_, in which I explore how novel deep-learning strategies can be used for time series forecasting.
 
-The work has consisted of understanding state-of-the-art models, developing novel strategies, and testing both existing and novel strategies throughout four case studies. The case studies performed during this work are the following:
+The work consisted of understanding state-of-the-art models and developing and testing novel strategies throughout four case studies. The case studies performed during this work are the following:
 - 〽️ **Lotka Volterra system (Applied Mathematics):** Synthetic data from an LV system is often used to analyse nonlinear, dynamic systems.
 - 🐇 **Hare and Lynx system (Ecology):** Real-world data from the Hare and Lynx ecosystem recorded through 80 consecutive years. 
 - 💵 **Nasdaq Composite (Finance):** Real-world historical data of the Nasdaq Composite.
