@@ -1,5 +1,5 @@
 # Deep Learning Strategies
-This repository includes the code that was developed for my master's thesis, _**Novel Deep Learning Strategies for Time Series Forecasting**_, in which I explore how novel deep-learning strategies can be used for time series forecasting. The code was developed during the autumn of 2023 as a part of the course _TKP4680 Chemical Engineering, Specialization Project_ and in the spring of 2024 for the course _TKP4900 Chemical Process Technology, Master's Thesis_ at the Norwegian University of Science and Technology. The documents written for the specialisation project and the master's thesis are included in the Thesis folder. 
+This repository includes the code that was developed for my master's thesis, _**Novel Deep Learning Strategies for Time Series Forecasting**_, in which I explore how novel deep-learning strategies can be used for time series forecasting. The code was developed during the autumn of 2023 as a part of the course _TKP4680 Chemical Engineering, Specialization Project_ and in the spring of 2024 for the course _TKP4900 Chemical Process Technology, Master's Thesis_ at the Norwegian University of Science and Technology. The documents written for the specialisation project and the master's thesis are included in the [Thesis](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/thesis) folder. 
 
 The work involved understanding state-of-the-art models and developing and testing novel strategies throughout four case studies. The case studies performed during this work are the following:
 - 〽️ **Lotka Volterra system (Applied Mathematics):** Synthetic data from an LV system is often used to analyse nonlinear, dynamic systems.
@@ -15,12 +15,7 @@ The work involved understanding state-of-the-art models and developing and testi
   
 ## 📄 Structure of the repository
 The folder structure of the repository is as follows: 
-
-- [Models](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models)
-  - [ANODE-EH](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/ANODE-EH)
-  - [ANODE-MS](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/ANODE-MS)
-  - [MNODE-MS](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/MNODE-MS)
-  - [NPEM](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/NPEM)
+- [Additional Data](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/additional_data)
 - [Case Studies](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/case_studies)
   - [Lotka-Volterra](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/case_studies/Lotka-Volterra%20(LV))
     - [Results](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/case_studies/Lotka-Volterra%20(LV)/results)
@@ -36,5 +31,10 @@ The folder structure of the repository is as follows:
 - [Comparisons](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/comparisons)
   - [Hare and Lynx (HL)](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/comparisons/Hare%20and%20Lynx%20(HL))
   - [Lotka-Volterra (LV)](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/comparisons/Lotka-Volterra%20(LV))
+- [Models](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models)
+  - [ANODE-EH](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/ANODE-EH)
+  - [ANODE-MS](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/ANODE-MS)
+  - [MNODE-MS](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/MNODE-MS)
+  - [NPEM](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/models/NPEM)
 - [Scripts](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/scripts)
-- [Additional Data](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/additional_data)
+- [Thesis](https://github.com/junetroan/Deep-Learning-Strategies/tree/main/thesis)
