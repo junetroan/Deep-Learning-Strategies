@@ -31,6 +31,18 @@ p_ = Float32[1.3, 0.9, 0.8, 1.8]
 prob = ODEProblem(lotka!, u0, tspan, p_)
 @time solution = solve(prob, AutoVern7(KenCarp4()), abstol = 1e-8, reltol = 1e-8, saveat = 0.25f0)
 
+using LaTeXStrings
+using GR
+
+# Set the font to Computer Modern
+gr(fontfamily = "Computer Modern")
+
+# Create the plot with specified font and fontsize
+LV_plot = Plots.plot(solution, title="Synthetic Lotka-Volterra data", xlabel = "Time", ylabel = "Population", label = ["Prey" "Predator"], color = [:purple :orange], legendfontsize = 10, guidefontsize = 10, tickfontsize = 10)
+
+# Save the plot
+Plots.savefig("case_studies/Lotka-Volterra (LV)/Synthetic Lotka-Volterra data.png")
+
 # Adding noise to the synthetic data
 X = Array(solution)
 t = solution.t
@@ -38,6 +50,9 @@ x̄ = mean(X, dims = 2)
 noise_magnitude = 10f-3
 noise_magnitude2 = 62.3f-2
 Xₙ = X .+ (noise_magnitude * x̄) .* randn(rng, eltype(X), size(X))
+
+scatter(t, Xₙ[1,:], label = "Synthetic Data", title="Synthetic Lotka-Volterra data with noise", xlabel = "Time", ylabel = "Population", color="orange")
+
 
 # Generating random numbers
 i = 1 # Number for random number generation
