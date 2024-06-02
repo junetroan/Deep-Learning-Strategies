@@ -71,6 +71,7 @@ ranges = group_ranges(datasize, group_size)
 u0 = Float32(x[first(1:5)])
 u0_init = [[x[first(rg)]; fill(mean(x[rg]), state - 1)] for rg in ranges] 
 u0_init = mapreduce(permutedims, vcat, u0_init)
+ode_data = x
 
 function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function::F,
     continuity_loss::C, solver::SciMLBase.AbstractODEAlgorithm, group_size::Integer;
@@ -94,7 +95,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
     loss = 0
 
     for (i, rg) in enumerate(ranges)
-        u = x[rg] # TODO: make it generic for observed states > 1
+        u = ode_data[rg] # TODO: make it generic for observed states > 1
         û = group_predictions[i][1, :]
         loss += loss_function(u, û)
 

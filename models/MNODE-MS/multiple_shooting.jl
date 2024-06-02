@@ -21,7 +21,7 @@ function multiple_shoot_mod(p, ode_data, tsteps, prob::ODEProblem, loss_function
     loss = 0
 
     for (i, rg) in enumerate(ranges)
-        u = ode_data[rg] # TODO: make it generic for observed states > 1
+        u = ode_data[rg] # TODO: make it generic for observed states > 1 - here ode_data needs to be 1D
         û = group_predictions[i][1, :]
         loss += loss_function(u, û)
 
