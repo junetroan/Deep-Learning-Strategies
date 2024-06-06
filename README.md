@@ -11,7 +11,7 @@ The work involved understanding state-of-the-art models and developing and testi
 - Augmented Neural Ordinary Differential Equations using Expanding Horizon (ANODE-EH)
 - Augmented Neural Ordinary Differential Equations using Multiple Shooting (ANODE-MS I + II)
 - Modified Neural Ordinary Differential Equations using Multiple Shooting (MNODE-MS)
-- Neural Prediction Error Method (NPEM)
+- Neural Simulation Error Method (NPEM) (Note! Named NPEM from Prediction Error, but is in fact a Simulation Error Method)
   
 ## 📄 Structure of the repository
 The folder structure of the repository is as follows: 
